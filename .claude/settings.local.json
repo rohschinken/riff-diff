@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /c/dev/htdocs/gp-diff status)",
+      "Bash(git -C /c/dev/htdocs/gp-diff log --oneline -10)",
+      "Bash(git -C /c/dev/htdocs/gp-diff ls-tree -r HEAD)",
+      "WebFetch(domain:alphatab.net)",
+      "WebFetch(domain:v2.tauri.app)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(npm view @coderline/alphatab-vite version)",
+      "Bash(npm view @coderline/alphatab version)",
+      "Bash(npm view create-tauri-app version)",
+      "Bash(npm view @tailwindcss/vite version)",
+      "Bash(npm create vite@latest . -- --template react-ts)",
+      "Bash(node --version)",
+      "Bash(npm --version)",
+      "Bash(npx create-vite@6 . --template react-ts)",
+      "Bash(npm install react react-dom @coderline/alphatab @tauri-apps/plugin-dialog @tauri-apps/plugin-fs)",
+      "Bash(npm install -D typescript @types/react @types/react-dom @vitejs/plugin-react vite tailwindcss @tailwindcss/vite vitest @vitest/ui jsdom @testing-library/react @testing-library/jest-dom @testing-library/user-event)",
+      "Bash(ls /c/dev/htdocs/gp-diff/node_modules/@coderline/alphatab/dist/alphaTab.worker.*)",
+      "Bash(npx vitest run)",
+      "Bash(npm install -D @coderline/alphatab-vite)",
+      "Bash(npm install -D happy-dom)",
+      "Bash(npx vite build)",
+      "Bash(nvm list)",
+      "Bash(nvm install 22)",
+      "Bash(nvm use 22.22.0)",
+      "Bash(npx vitest run src/renderer/AlphaTabPane.test.tsx)",
+      "Bash(npx tsc -b)"
+    ]
+  }
+}
