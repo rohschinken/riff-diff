@@ -176,6 +176,13 @@ export function diffScores(
   const trackA = scoreA.tracks[trackIndexA]
   const trackB = scoreB.tracks[trackIndexB]
 
+  if (!trackA || !trackB) {
+    return {
+      measures: [],
+      summary: { equal: 0, added: 0, removed: 0, changed: 0, tempoChanges: 0, timeSigChanges: 0, totalMeasures: 0 },
+    }
+  }
+
   const maxMeasures = Math.max(scoreA.masterBars.length, scoreB.masterBars.length)
   const minMeasures = Math.min(scoreA.masterBars.length, scoreB.masterBars.length)
 

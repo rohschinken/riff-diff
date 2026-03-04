@@ -33,7 +33,9 @@
       "Bash(npm run build)",
       "Bash(npx vitest run --reporter=verbose)",
       "Bash(node -e \":*)",
-      "Bash(npx vitest run src/hooks/useSyncScroll.test.ts)"
+      "Bash(npx vitest run src/hooks/useSyncScroll.test.ts)",
+      "Bash(npm test)",
+      "Bash(npx vitest run src/components/DiffMinimap.test.tsx)"
     ]
   }
 }

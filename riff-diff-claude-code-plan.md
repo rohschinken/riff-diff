@@ -199,9 +199,14 @@ riff-diff/
 │   │   └── useSyncScroll.test.ts  7 tests: scroll sync, wheel fwd, cleanup
 ```
 
+```
+│   ├── components/
+│   │   ├── DiffMinimap.tsx          Canvas minimap with computeMeasureStatus() + drawMinimap()
+│   │   └── DiffMinimap.test.tsx     16 tests: status priority, canvas drawing, seek, edge cases
+```
+
 **Future files (not yet created):**
 ```
-src/components/DiffMinimap.tsx       Phase 7
 src/components/DiffFilterBar.tsx     Phase 8
 src/components/DropZone.tsx          Phase 9
 ```
@@ -218,12 +223,12 @@ src/components/DropZone.tsx          Phase 9
 | 4 Diff Engine | **COMPLETE** | +15 (diffEngine) |
 | 5 Diff Overlay | **COMPLETE** | +18 (DiffOverlay) |
 | 6 Synchronized Scrolling | **COMPLETE** | +7 (useSyncScroll) + 1 (AlphaTabPane) |
-| 7 Diff Minimap | Not started | — |
+| 7 Diff Minimap | **COMPLETE** | +16 (DiffMinimap) |
 | 8 Diff Filter Toggles | Not started | — |
 | 9 UI Polish | Not started | — |
 | 10 Tauri Desktop | Not started | — |
 
-**Total: 76 tests passing**, `npm run build` clean.
+**Total: 92 tests passing**, `npm run build` clean.
 
 ---
 
@@ -336,20 +341,23 @@ Each phase: **QA Engineer writes tests first → Lead Engineer implements → te
 
 ---
 
-### Phase 7 — Diff Minimap
-**Agents:** Lead Engineer, QA Engineer, UX Engineer
+### Phase 7 — Diff Minimap ✅ COMPLETE
 
-**Implement:** `DiffMinimap.tsx` — full-width `<canvas>` (28px tall). Draw one stripe per measure coloured by worst diff status. Draw viewport indicator rect. Clickable/draggable to seek both panes. `ResizeObserver` redraws on resize. Respects `DiffFilters`.
+**Implementation:** `DiffMinimap.tsx` — 28px-tall `<canvas>` between SplitPane and the shared scrollbar. One stripe per measure, colored by worst diff status (priority: removed > changed > added > equal). Viewport indicator shows visible scroll fraction. Click/drag to seek both panes. `ResizeObserver` redraws on resize. Respects `DiffFilters`.
 
-**Tests (`src/components/DiffMinimap.test.ts`):**
-- Canvas drawn with correct number of stripes = `totalMeasures`
-- Measure with `removed` beat → stripe colour is red-family
-- Measure with `equal` only → stripe colour is grey-family
-- Filtered-out status → stripe falls back to grey
-- Click at 50% canvas width → `onSeek(~0.5)` called
-- `ResizeObserver` callback triggers redraw
+**Actual decisions:**
+- **Single shared minimap** (not two per pane) — diff is per-measure, one minimap is cleaner
+- **Canvas rendering** with extracted pure functions (`computeMeasureStatus`, `drawMinimap`) for testability
+- **Also acts as scrollbar** — writes directly to `scrollbarEl.scrollLeft`, existing `useSyncScroll` propagates
+- **PointerEvents** (not MouseEvents) — unifies mouse + touch; `setPointerCapture` for drag outside bounds
+- **HiDPI support** — canvas internal resolution × `devicePixelRatio`, CSS size fixed at 28px
+- **Worst-status priority** — `removed(3) > changed(2) > added(1) > equal(0)`; tempo/timeSig bumps to `changed` if enabled and no worse beat status exists
+- **Colors** match DiffOverlay hues (green/red/yellow) at full opacity; equal = `#374151` (grey-700)
+- **Canvas mock strategy** for happy-dom: `vi.spyOn(HTMLCanvasElement.prototype, 'getContext')` + fillStyleHistory tracking
 
-**Phase gate:** Tests pass. UX confirms minimap reflects diff distribution and clicking seeks both panes correctly.
+**Tests (16):** computeMeasureStatus (7 pure function tests), drawMinimap (4 canvas mock tests), component rendering (3 tests), edge cases (2 tests).
+
+**Total: 92 tests passing**, `npm run build` clean.
 
 ---
 

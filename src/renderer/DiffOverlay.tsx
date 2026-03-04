@@ -18,7 +18,7 @@ const COLORS = {
   changed: 'rgba(234, 179, 8, 0.25)',
   ghostAdded: 'rgba(34, 197, 94, 0.12)',
   ghostRemoved: 'rgba(239, 68, 68, 0.12)',
-  tempoBadge: '#d97706',
+  tempoBadge: '#374151',
 } as const
 
 interface OverlayRect {
@@ -189,13 +189,15 @@ export function DiffOverlay({ diffResult, side, api, renderKey, filters }: DiffO
           style={{
             position: 'absolute',
             left: badge.x,
-            top: badge.y - 18,
+            top: badge.y - 22,
+            zIndex: 20,
             backgroundColor: COLORS.tempoBadge,
             color: '#fff',
-            fontSize: 10,
-            fontWeight: 600,
-            padding: '1px 4px',
-            borderRadius: 3,
+            fontSize: 11,
+            fontWeight: 700,
+            lineHeight: '16px',
+            padding: '2px 6px',
+            borderRadius: 4,
             whiteSpace: 'nowrap',
             pointerEvents: 'none',
           }}

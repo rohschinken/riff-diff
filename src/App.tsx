@@ -8,6 +8,7 @@ import { TrackToolbar, TrackInfo } from './components/TrackToolbar'
 import { AlphaTabPane } from './renderer/AlphaTabPane'
 import type { AlphaTabPaneHandle } from './renderer/AlphaTabPane'
 import { DiffOverlay } from './renderer/DiffOverlay'
+import { DiffMinimap } from './components/DiffMinimap'
 import { useFileLoader } from './hooks/useFileLoader'
 import { useSyncScroll } from './hooks/useSyncScroll'
 import { diffScores } from './diff/diffEngine'
@@ -43,7 +44,8 @@ function forceStaveVisibility(score: Score) {
 }
 
 function renderTrackOnApi(api: AlphaTabApi, trackIndex: number) {
-  api.renderTracks([api.score!.tracks[trackIndex]])
+  const track = api.score?.tracks[trackIndex]
+  if (track) api.renderTracks([track])
 }
 
 function App() {
@@ -257,11 +259,15 @@ function App() {
           }
         />
         </div>
+        <DiffMinimap
+          diffResult={diffResult}
+          filters={filters}
+          scrollbarEl={scrollbarEl}
+        />
         {(scrollWidthA > 0 || scrollWidthB > 0) && (
           <div
             ref={setScrollbarEl}
-            className="overflow-x-auto overflow-y-hidden shrink-0"
-            style={{ height: 16 }}
+            className="scrollbar-always-visible overflow-y-hidden shrink-0"
           >
             <div style={{ width: Math.max(scrollWidthA, scrollWidthB), height: 1 }} />
           </div>
