@@ -36,3 +36,17 @@ export interface DiffResult {
     totalMeasures: number
   }
 }
+
+export interface DiffFilters {
+  showAdded: boolean
+  showRemoved: boolean
+  showChanged: boolean
+  showTempoTimeSig: boolean
+}
+
+export const DEFAULT_DIFF_FILTERS: DiffFilters = {
+  showAdded: true,
+  showRemoved: true,
+  showChanged: true,
+  showTempoTimeSig: true,
+}

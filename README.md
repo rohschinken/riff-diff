@@ -32,7 +32,7 @@ Open `http://localhost:5173`. Click "Open File A" / "Open File B" to load `.gp` 
 - **Phase 2** — alphaTab Rendering, single pane (complete)
 - **Phase 3** — Dual Pane & Track Switcher (complete)
 - **Phase 4** — Diff Engine (complete)
-- Phase 5 — Diff Overlay
+- **Phase 5** — Diff Overlay (complete)
 - Phase 6 — Synchronized Scrolling
 - Phase 7 — Diff Minimap
 - Phase 8 — Diff Filter Toggles

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlphaTabApi } from '@coderline/alphatab'
 import type { model } from '@coderline/alphatab'
 
@@ -6,7 +6,11 @@ type Score = model.Score
 import { SplitPane } from './components/SplitPane'
 import { TrackToolbar, TrackInfo } from './components/TrackToolbar'
 import { AlphaTabPane } from './renderer/AlphaTabPane'
+import { DiffOverlay } from './renderer/DiffOverlay'
 import { useFileLoader } from './hooks/useFileLoader'
+import { diffScores } from './diff/diffEngine'
+import { DEFAULT_DIFF_FILTERS } from './diff/types'
+import type { DiffResult, DiffFilters } from './diff/types'
 
 function EmptyPane({ label }: { label: string }) {
   return (
@@ -46,6 +50,8 @@ function App() {
 
   const apiARef = useRef<AlphaTabApi | null>(null)
   const apiBRef = useRef<AlphaTabApi | null>(null)
+  const scoreARef = useRef<Score | null>(null)
+  const scoreBRef = useRef<Score | null>(null)
 
   const [tracksA, setTracksA] = useState<TrackInfo[] | null>(null)
   const [tracksB, setTracksB] = useState<TrackInfo[] | null>(null)
@@ -54,26 +60,46 @@ function App() {
   const [trackMapA, setTrackMapA] = useState(0)
   const [trackMapB, setTrackMapB] = useState(0)
 
+  const [diffResult, setDiffResult] = useState<DiffResult | null>(null)
+  const [renderKeyA, setRenderKeyA] = useState(0)
+  const [renderKeyB, setRenderKeyB] = useState(0)
+  const [filters] = useState<DiffFilters>(DEFAULT_DIFF_FILTERS)
+
   const handleRenderFinishedA = useCallback((api: AlphaTabApi) => {
     apiARef.current = api
+    setRenderKeyA((prev) => prev + 1)
   }, [])
 
   const handleRenderFinishedB = useCallback((api: AlphaTabApi) => {
     apiBRef.current = api
+    setRenderKeyB((prev) => prev + 1)
   }, [])
 
   const handleScoreLoadedA = useCallback((score: Score) => {
     forceStaveVisibility(score)
+    scoreARef.current = score
     setTracksA(extractTracks(score))
     setSelectedTrackIndex(0)
     setTrackMapA(0)
+    setDiffResult(null)
   }, [])
 
   const handleScoreLoadedB = useCallback((score: Score) => {
     forceStaveVisibility(score)
+    scoreBRef.current = score
     setTracksB(extractTracks(score))
     setTrackMapB(0)
+    setDiffResult(null)
   }, [])
+
+  // Compute diff when both scores are loaded or track selection changes
+  useEffect(() => {
+    if (!scoreARef.current || !scoreBRef.current) {
+      setDiffResult(null)
+      return
+    }
+    setDiffResult(diffScores(scoreARef.current, scoreBRef.current, trackMapA, trackMapB))
+  }, [trackMapA, trackMapB, tracksA, tracksB])
 
   const handleTrackChange = useCallback((index: number) => {
     setSelectedTrackIndex(index)
@@ -140,7 +166,15 @@ function App() {
                     buffer={fileA.fileData.buffer}
                     onRenderFinished={handleRenderFinishedA}
                     onScoreLoaded={handleScoreLoadedA}
-                  />
+                  >
+                    <DiffOverlay
+                      diffResult={diffResult}
+                      side="A"
+                      api={apiARef.current}
+                      renderKey={renderKeyA}
+                      filters={filters}
+                    />
+                  </AlphaTabPane>
                 ) : (
                   <EmptyPane label="File A — click 'Open File A' to load" />
                 )}
@@ -170,7 +204,15 @@ function App() {
                     buffer={fileB.fileData.buffer}
                     onRenderFinished={handleRenderFinishedB}
                     onScoreLoaded={handleScoreLoadedB}
-                  />
+                  >
+                    <DiffOverlay
+                      diffResult={diffResult}
+                      side="B"
+                      api={apiBRef.current}
+                      renderKey={renderKeyB}
+                      filters={filters}
+                    />
+                  </AlphaTabPane>
                 ) : (
                   <EmptyPane label="File B — click 'Open File B' to load" />
                 )}

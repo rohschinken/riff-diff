@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, act } from '@testing-library/react'
+import { render, act, screen } from '@testing-library/react'
 import { AlphaTabPane } from './AlphaTabPane'
 
 let mockLoad: ReturnType<typeof vi.fn>
@@ -8,9 +8,12 @@ let mockPostRenderOn: ReturnType<typeof vi.fn>
 let mockUnsubscribe: ReturnType<typeof vi.fn>
 let mockScoreLoadedOn: ReturnType<typeof vi.fn>
 let mockScoreLoadedUnsubscribe: ReturnType<typeof vi.fn>
+let mockRenderStartedOn: ReturnType<typeof vi.fn>
+let mockRenderStartedUnsubscribe: ReturnType<typeof vi.fn>
 let capturedOptions: Record<string, unknown> | null
 let capturedPostRenderHandler: (() => void) | null
 let capturedScoreLoadedHandler: ((score: unknown) => void) | null
+let capturedRenderStartedHandler: ((isResize: boolean) => void) | null
 
 vi.mock('@coderline/alphatab', () => {
   const LayoutMode = { Page: 0, Horizontal: 1, Parchment: 2 }
@@ -19,13 +22,19 @@ vi.mock('@coderline/alphatab', () => {
   class AlphaTabApi {
     load: ReturnType<typeof vi.fn>
     destroy: ReturnType<typeof vi.fn>
+    renderStarted: { on: ReturnType<typeof vi.fn>; off: ReturnType<typeof vi.fn> }
     postRenderFinished: { on: ReturnType<typeof vi.fn>; off: ReturnType<typeof vi.fn> }
     scoreLoaded: { on: ReturnType<typeof vi.fn>; off: ReturnType<typeof vi.fn> }
 
-    constructor(_element: HTMLElement, options: unknown) {
+    constructor(element: HTMLElement, options: unknown) {
       capturedOptions = options as Record<string, unknown>
+      // Simulate alphaTab creating .at-surface inside the container
+      const surface = document.createElement('div')
+      surface.className = 'at-surface'
+      element.appendChild(surface)
       this.load = mockLoad
       this.destroy = mockDestroy
+      this.renderStarted = { on: mockRenderStartedOn, off: vi.fn() }
       this.postRenderFinished = { on: mockPostRenderOn, off: vi.fn() }
       this.scoreLoaded = { on: mockScoreLoadedOn, off: vi.fn() }
     }
@@ -39,10 +48,16 @@ describe('AlphaTabPane', () => {
     capturedOptions = null
     capturedPostRenderHandler = null
     capturedScoreLoadedHandler = null
+    capturedRenderStartedHandler = null
     mockLoad = vi.fn()
     mockDestroy = vi.fn()
     mockUnsubscribe = vi.fn()
     mockScoreLoadedUnsubscribe = vi.fn()
+    mockRenderStartedUnsubscribe = vi.fn()
+    mockRenderStartedOn = vi.fn((handler: (isResize: boolean) => void) => {
+      capturedRenderStartedHandler = handler
+      return mockRenderStartedUnsubscribe
+    })
     mockPostRenderOn = vi.fn((handler: () => void) => {
       capturedPostRenderHandler = handler
       return mockUnsubscribe
@@ -161,5 +176,56 @@ describe('AlphaTabPane', () => {
     expect(mockScoreLoadedUnsubscribe).not.toHaveBeenCalled()
     unmount()
     expect(mockScoreLoadedUnsubscribe).toHaveBeenCalledOnce()
+  })
+
+  it('unsubscribes from renderStarted on unmount', () => {
+    const { unmount } = render(<AlphaTabPane buffer={null} />)
+
+    expect(mockRenderStartedUnsubscribe).not.toHaveBeenCalled()
+    unmount()
+    expect(mockRenderStartedUnsubscribe).toHaveBeenCalledOnce()
+  })
+
+  it('portals children into .at-surface after postRenderFinished', () => {
+    render(
+      <AlphaTabPane buffer={null}>
+        <span data-testid="child">hello</span>
+      </AlphaTabPane>,
+    )
+
+    // Children not rendered before postRenderFinished (no portal target yet)
+    expect(screen.queryByTestId('child')).toBeNull()
+
+    // Simulate alphaTab completing a render
+    act(() => {
+      capturedPostRenderHandler?.()
+    })
+
+    // Now children are portaled into .at-surface
+    expect(screen.getByTestId('child')).toBeInTheDocument()
+    expect(screen.getByTestId('child').textContent).toBe('hello')
+    expect(screen.getByTestId('child').closest('.at-surface')).not.toBeNull()
+  })
+
+  it('clears portal when renderStarted fires', () => {
+    render(
+      <AlphaTabPane buffer={null}>
+        <span data-testid="child">hello</span>
+      </AlphaTabPane>,
+    )
+
+    // Establish portal
+    act(() => {
+      capturedPostRenderHandler?.()
+    })
+    expect(screen.getByTestId('child')).toBeInTheDocument()
+
+    // renderStarted fires (e.g. track switch about to re-render)
+    act(() => {
+      capturedRenderStartedHandler?.(false)
+    })
+
+    // Portal cleared — children removed from DOM
+    expect(screen.queryByTestId('child')).toBeNull()
   })
 })

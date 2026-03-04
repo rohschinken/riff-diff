@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal, flushSync } from 'react-dom'
 import { AlphaTabApi, LayoutMode } from '@coderline/alphatab'
 import type { model } from '@coderline/alphatab'
 
@@ -8,12 +9,14 @@ export interface AlphaTabPaneProps {
   buffer: ArrayBuffer | null
   onRenderFinished?: (api: AlphaTabApi) => void
   onScoreLoaded?: (score: Score) => void
+  children?: ReactNode
 }
 
-export function AlphaTabPane({ buffer, onRenderFinished, onScoreLoaded }: AlphaTabPaneProps) {
+export function AlphaTabPane({ buffer, onRenderFinished, onScoreLoaded, children }: AlphaTabPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const onRenderFinishedRef = useRef(onRenderFinished)
   const onScoreLoadedRef = useRef(onScoreLoaded)
+  const [surfaceEl, setSurfaceEl] = useState<HTMLElement | null>(null)
 
   onRenderFinishedRef.current = onRenderFinished
   onScoreLoadedRef.current = onScoreLoaded
@@ -34,7 +37,18 @@ export function AlphaTabPane({ buffer, onRenderFinished, onScoreLoaded }: AlphaT
       },
     })
 
+    // Clear portal BEFORE alphaTab modifies DOM on re-render (e.g. track switch).
+    // renderStarted fires synchronously before the async worker render,
+    // so flushSync ensures React unmounts portal children before any DOM changes.
+    const unsubRenderStarted = api.renderStarted.on(() => {
+      flushSync(() => {
+        setSurfaceEl(null)
+      })
+    })
+
     const unsubRender = api.postRenderFinished.on(() => {
+      const surface = containerRef.current?.querySelector('.at-surface') as HTMLElement | null
+      setSurfaceEl(surface)
       onRenderFinishedRef.current?.(api)
     })
 
@@ -47,13 +61,17 @@ export function AlphaTabPane({ buffer, onRenderFinished, onScoreLoaded }: AlphaT
     }
 
     return () => {
+      unsubRenderStarted()
       unsubRender()
       unsubScore()
+      setSurfaceEl(null)
       api.destroy()
     }
   }, [buffer])
 
   return (
-    <div ref={containerRef} className="w-full h-full overflow-auto" />
+    <div ref={containerRef} className="w-full h-full overflow-auto">
+      {surfaceEl && children ? createPortal(children, surfaceEl) : null}
+    </div>
   )
 }
