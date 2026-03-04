@@ -170,10 +170,14 @@ riff-diff/
 │   │   └── diffEngine.test.ts      15 tests: signatures, LCS alignment, tempo, timesig
 │   ├── hooks/
 │   │   ├── useFileLoader.ts         File picker (web + Tauri), extension validation
-│   │   └── useFileLoader.test.ts    13 tests: web/Tauri paths, validation, error handling
+│   │   ├── useFileLoader.test.ts    11 tests: web/Tauri paths, validation, error handling
+│   │   ├── useSyncScroll.ts         Shared scrollbar scroll sync hook
+│   │   └── useSyncScroll.test.ts    7 tests: sync, wheel forwarding, cleanup
 │   ├── renderer/
-│   │   ├── AlphaTabPane.tsx         alphaTab API wrapper with lifecycle management
-│   │   └── AlphaTabPane.test.tsx    10 tests: config, lifecycle, callbacks
+│   │   ├── AlphaTabPane.tsx         alphaTab API wrapper with forwardRef + portal lifecycle
+│   │   ├── AlphaTabPane.test.tsx    15 tests: config, lifecycle, callbacks, portal, ref
+│   │   ├── DiffOverlay.tsx          Diff overlay with computeOverlays() pure fn
+│   │   └── DiffOverlay.test.tsx     18 tests: colors, ghosts, badges, dedup, multi-staff
 │   └── test/
 │       └── setup.ts                 @testing-library/jest-dom matchers
 ├── testfiles/                       8 GP test files (gitignored)
@@ -186,10 +190,17 @@ riff-diff/
 └── package.json
 ```
 
+```
+│   ├── renderer/
+│   │   ├── DiffOverlay.tsx        Diff overlay with computeOverlays() pure fn
+│   │   └── DiffOverlay.test.tsx   18 tests: colors, ghosts, badges, dedup, filters
+│   ├── hooks/
+│   │   ├── useSyncScroll.ts       Shared scrollbar sync hook
+│   │   └── useSyncScroll.test.ts  7 tests: scroll sync, wheel fwd, cleanup
+```
+
 **Future files (not yet created):**
 ```
-src/renderer/DiffOverlay.tsx         Phase 5
-src/hooks/useSyncScroll.ts           Phase 6
 src/components/DiffMinimap.tsx       Phase 7
 src/components/DiffFilterBar.tsx     Phase 8
 src/components/DropZone.tsx          Phase 9
@@ -205,14 +216,14 @@ src/components/DropZone.tsx          Phase 9
 | 2 alphaTab Rendering | **COMPLETE** | +9 → grew to 10 (AlphaTabPane) |
 | 3 Dual Pane & Track Switcher | **COMPLETE** | +12 → grew to 11 (TrackToolbar) |
 | 4 Diff Engine | **COMPLETE** | +15 (diffEngine) |
-| 5 Diff Overlay | Not started | — |
-| 6 Synchronized Scrolling | Not started | — |
+| 5 Diff Overlay | **COMPLETE** | +18 (DiffOverlay) |
+| 6 Synchronized Scrolling | **COMPLETE** | +7 (useSyncScroll) + 1 (AlphaTabPane) |
 | 7 Diff Minimap | Not started | — |
 | 8 Diff Filter Toggles | Not started | — |
 | 9 UI Polish | Not started | — |
 | 10 Tauri Desktop | Not started | — |
 
-**Total: 49 tests passing**, `npm run build` clean.
+**Total: 76 tests passing**, `npm run build` clean.
 
 ---
 
@@ -291,42 +302,37 @@ Each phase: **QA Engineer writes tests first → Lead Engineer implements → te
 
 ---
 
-### Phase 5 — Diff Overlay (NEXT)
-**Agents:** Lead Engineer, QA Engineer, UX Engineer, Musician
+### Phase 5 — Diff Overlay ✅ COMPLETE
 
-**Implement:** `DiffOverlay.tsx` — after `postRenderFinished`, iterate `DiffResult`. For each `BeatDiff`: call `boundsLookup.findBeat(beat)` → render coloured `<div>` at `realBounds`. Null beats → ghost overlay using `masterBarBounds`. Tempo/timeSig diffs → amber badge at top of measure. Respects `DiffFilters` prop.
+**What was built:**
+- `DiffOverlay.tsx` — `computeOverlays()` pure function + React component
+- `DiffOverlay` portaled into `.at-surface` via `createPortal` with lifecycle managed by `renderStarted`/`postRenderFinished`
+- `AlphaTabPane` gained `children` prop for portal injection
 
-**Integration in App.tsx:**
-- Store both Score objects in state/refs
-- Call `diffScores()` in a `useEffect` when both scores are loaded
-- Pass `DiffResult` to both `AlphaTabPane` instances (or to `DiffOverlay` children)
-- `DiffOverlay` reads `boundsLookup` from the alphaTab API after each `postRenderFinished`
-
-**Tests (`src/renderer/DiffOverlay.test.ts`):**
-- `added` beat renders overlay with bg `#1a7a2e`
-- `removed` beat renders overlay with bg `#7a1a1a`
-- `changed` beat renders overlay with bg `#7a5a1a`
-- `equal` beat renders no overlay div
-- When `filters.showAdded = false`, added overlays not rendered
-- Tempo diff renders amber badge; hidden when `filters.showTempoTimeSig = false`
-- Recomputes on second `postRenderFinished` call (resize/zoom simulation)
-
-**Phase gate:** Tests pass. Musician loads two similar `.gp` files with one note changed; confirms only that beat is highlighted. UX confirms colours meet contrast standard.
+**Key decisions:**
+- **Portal lifecycle**: `renderStarted` + `flushSync(setSurfaceEl(null))` clears portal before alphaTab modifies DOM on re-render (e.g. track switch), preventing `Node.removeChild` crash. `postRenderFinished` re-establishes the portal.
+- **`findBeats()` (plural)** used instead of `findBeat()` (singular) — returns all staff instances (standard notation + tablature), not just first match. Returns `null` not `[]` for missing beats — guarded with `?? []`.
+- **Position deduplication**: `findBeats()` returns one entry per voice/staff rendering; multiple voices on the same staff share identical bounds. Deduplicated via `Set<string>` keyed by `(x,y,w,h)` to prevent opacity stacking.
+- **Vivid Tailwind colors at 0.25 opacity**: `added=rgba(34,197,94,0.25)`, `removed=rgba(239,68,68,0.25)`, `changed=rgba(234,179,8,0.25)`. Ghost overlays at 0.12. Tempo badge `#d97706`.
+- **renderKey pattern**: Counter incremented on each `postRenderFinished`; DiffOverlay's `useMemo` depends on it, forcing overlay recomputation when alphaTab re-renders.
+- Scores stored as refs (large, identity-stable), DiffResult as state (drives rendering).
 
 ---
 
-### Phase 6 — Synchronized Scrolling
-**Agents:** Lead Engineer, QA Engineer, UX Engineer
+### Phase 6 — Synchronized Scrolling ✅ COMPLETE
 
-**Implement:** `useSyncScroll(refA, refB)` — attach `scroll` listeners to both `.at-viewport` elements; mirror `scrollLeft` with a `locked` flag + `requestAnimationFrame` guard to prevent loops. Expose `.at-viewport` from each pane via `useImperativeHandle`.
+**What was built:**
+- `useSyncScroll(elA, elB, scrollbar)` hook — single shared scrollbar at bottom of window
+- `AlphaTabPane` converted to `forwardRef` with `useImperativeHandle` exposing `AlphaTabPaneHandle.getScrollContainer()`
+- Shared scrollbar div in `App.tsx` (conditionally rendered, sized to `max(scrollWidthA, scrollWidthB)`)
 
-**Tests (`src/hooks/useSyncScroll.test.ts`):**
-- Scrolling element A sets `scrollLeft` on B to the same value
-- Scrolling element B sets `scrollLeft` on A
-- Rapid scroll events don't cause infinite loop (fire > 10 events, assert listener called ≤ expected times)
-- Cleanup: event listeners removed on unmount
-
-**Phase gate:** Tests pass. UX confirms dragging either scrollbar moves both panes. Overlays scroll correctly with score.
+**Key decisions:**
+- **Shared scrollbar (not two-scrollbar sync)**: Single scrollbar at the bottom like VS Code's diff view. Avoids the tricky infinite-loop prevention needed by bidirectional scroll mirroring. Each pane has `overflow-x: hidden` — cannot scroll independently.
+- **Horizontal only**: In alphaTab Horizontal layout mode, all measures render in one wide row. Vertical overflow is rare.
+- **Absolute pixel positions**: `scrollLeft` mirrored as-is. Shorter file's pane simply stops at its max. Keeps measures pixel-aligned.
+- **Wheel event forwarding**: `wheel` events with `deltaX !== 0` on panes are forwarded to the scrollbar div (`passive: false` to `preventDefault`). Vertical `deltaY` passes through for natural `overflow-y: auto` behavior.
+- **alphaTab doesn't interfere**: With `enablePlayer: false`, alphaTab never reads/writes scroll CSS on the container. `getScrollContainer()` is never called. Setting `overflow-x: hidden` is safe.
+- **Callback ref for scrollbar**: Uses `useState<HTMLDivElement | null>` (not `useRef`) for the scrollbar element, ensuring `useSyncScroll` re-runs when the element mounts.
 
 ---
 
@@ -444,3 +450,13 @@ npm run tauri build                                      # Mac .dmg/.app
 4. **Test file location** — 8 GP test files in `testfiles/` directory (Fever v0.1.3 through v0.3.10), gitignored. Useful for manual testing of diff visualization.
 
 5. **Large bundle warning** — alphaTab is ~1.4MB minified. The Vite build warns about chunk size. Consider code-splitting in Phase 9 if needed.
+
+6. **React portal inside alphaTab DOM** — `createPortal` into `.at-surface` works for positioning (overlays scroll with notation), but alphaTab clears/rebuilds `.at-surface` children on re-render (track switch, zoom). The portal must be cleared BEFORE alphaTab touches the DOM, or React throws `Node.removeChild: not a child`. Solution: listen to `api.renderStarted` (fires synchronously before async worker render) and use `flushSync(setSurfaceEl(null))` to force immediate portal unmount.
+
+7. **`findBeats()` returns null, not `[]`** — `boundsLookup.findBeats(beat)` returns `null` when the beat is not found (e.g. stale beat ref from a different track). Always guard with `?? []`.
+
+8. **`findBeats()` returns duplicates** — Returns one entry per voice/staff rendering. Multiple voices on the same staff produce identical `(x,y,w,h)` bounds. Without deduplication, overlapping overlays cause visible opacity stacking. Deduplicate by position key.
+
+9. **alphaTab does NOT create `.at-viewport`** — The plan originally referenced `.at-viewport` but this element does not exist. alphaTab creates only `.at-surface` inside the container div. The container div itself (with `overflow-auto`) is the scrollable element.
+
+10. **`scrollbarRef.current` timing** — Passing `useRef.current` to a hook doesn't re-trigger the hook's `useEffect` when the ref value changes (refs don't cause re-renders). Use `useState` with a callback ref (`ref={setScrollbarEl}`) instead to ensure the hook re-runs when the element mounts.

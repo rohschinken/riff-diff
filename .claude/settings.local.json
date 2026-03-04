@@ -30,7 +30,10 @@
       "Bash(npx tsc -b)",
       "Bash(npm test -- --run)",
       "Bash(npx vitest run src/components/TrackToolbar.test.tsx)",
-      "Bash(npm run build)"
+      "Bash(npm run build)",
+      "Bash(npx vitest run --reporter=verbose)",
+      "Bash(node -e \":*)",
+      "Bash(npx vitest run src/hooks/useSyncScroll.test.ts)"
     ]
   }
 }

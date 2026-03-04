@@ -6,8 +6,10 @@ type Score = model.Score
 import { SplitPane } from './components/SplitPane'
 import { TrackToolbar, TrackInfo } from './components/TrackToolbar'
 import { AlphaTabPane } from './renderer/AlphaTabPane'
+import type { AlphaTabPaneHandle } from './renderer/AlphaTabPane'
 import { DiffOverlay } from './renderer/DiffOverlay'
 import { useFileLoader } from './hooks/useFileLoader'
+import { useSyncScroll } from './hooks/useSyncScroll'
 import { diffScores } from './diff/diffEngine'
 import { DEFAULT_DIFF_FILTERS } from './diff/types'
 import type { DiffResult, DiffFilters } from './diff/types'
@@ -52,6 +54,8 @@ function App() {
   const apiBRef = useRef<AlphaTabApi | null>(null)
   const scoreARef = useRef<Score | null>(null)
   const scoreBRef = useRef<Score | null>(null)
+  const paneARef = useRef<AlphaTabPaneHandle>(null)
+  const paneBRef = useRef<AlphaTabPaneHandle>(null)
 
   const [tracksA, setTracksA] = useState<TrackInfo[] | null>(null)
   const [tracksB, setTracksB] = useState<TrackInfo[] | null>(null)
@@ -65,14 +69,26 @@ function App() {
   const [renderKeyB, setRenderKeyB] = useState(0)
   const [filters] = useState<DiffFilters>(DEFAULT_DIFF_FILTERS)
 
+  const [scrollElA, setScrollElA] = useState<HTMLElement | null>(null)
+  const [scrollElB, setScrollElB] = useState<HTMLElement | null>(null)
+  const [scrollWidthA, setScrollWidthA] = useState(0)
+  const [scrollWidthB, setScrollWidthB] = useState(0)
+  const [scrollbarEl, setScrollbarEl] = useState<HTMLDivElement | null>(null)
+
   const handleRenderFinishedA = useCallback((api: AlphaTabApi) => {
     apiARef.current = api
     setRenderKeyA((prev) => prev + 1)
+    const el = paneARef.current?.getScrollContainer() ?? null
+    setScrollElA(el)
+    setScrollWidthA(el?.scrollWidth ?? 0)
   }, [])
 
   const handleRenderFinishedB = useCallback((api: AlphaTabApi) => {
     apiBRef.current = api
     setRenderKeyB((prev) => prev + 1)
+    const el = paneBRef.current?.getScrollContainer() ?? null
+    setScrollElB(el)
+    setScrollWidthB(el?.scrollWidth ?? 0)
   }, [])
 
   const handleScoreLoadedA = useCallback((score: Score) => {
@@ -91,6 +107,23 @@ function App() {
     setTrackMapB(0)
     setDiffResult(null)
   }, [])
+
+  // Clear scroll state when files are unloaded
+  useEffect(() => {
+    if (!fileA.fileData) {
+      setScrollElA(null)
+      setScrollWidthA(0)
+    }
+  }, [fileA.fileData])
+
+  useEffect(() => {
+    if (!fileB.fileData) {
+      setScrollElB(null)
+      setScrollWidthB(0)
+    }
+  }, [fileB.fileData])
+
+  useSyncScroll(scrollElA, scrollElB, scrollbarEl)
 
   // Compute diff when both scores are loaded or track selection changes
   useEffect(() => {
@@ -141,7 +174,8 @@ function App() {
         onTrackChange={handleTrackChange}
         onTrackMapChange={handleTrackMapChange}
       />
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 overflow-hidden flex flex-col min-h-0">
+        <div className="flex-1 min-h-0">
         <SplitPane
           top={
             <div className="flex flex-col h-full">
@@ -163,6 +197,7 @@ function App() {
               <div className="flex-1 overflow-hidden">
                 {fileA.fileData ? (
                   <AlphaTabPane
+                    ref={paneARef}
                     buffer={fileA.fileData.buffer}
                     onRenderFinished={handleRenderFinishedA}
                     onScoreLoaded={handleScoreLoadedA}
@@ -201,6 +236,7 @@ function App() {
               <div className="flex-1 overflow-hidden">
                 {fileB.fileData ? (
                   <AlphaTabPane
+                    ref={paneBRef}
                     buffer={fileB.fileData.buffer}
                     onRenderFinished={handleRenderFinishedB}
                     onScoreLoaded={handleScoreLoadedB}
@@ -220,6 +256,16 @@ function App() {
             </div>
           }
         />
+        </div>
+        {(scrollWidthA > 0 || scrollWidthB > 0) && (
+          <div
+            ref={setScrollbarEl}
+            className="overflow-x-auto overflow-y-hidden shrink-0"
+            style={{ height: 16 }}
+          >
+            <div style={{ width: Math.max(scrollWidthA, scrollWidthB), height: 1 }} />
+          </div>
+        )}
       </main>
     </div>
   )

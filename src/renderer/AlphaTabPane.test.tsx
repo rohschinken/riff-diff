@@ -1,6 +1,8 @@
+import { createRef } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, act, screen } from '@testing-library/react'
 import { AlphaTabPane } from './AlphaTabPane'
+import type { AlphaTabPaneHandle } from './AlphaTabPane'
 
 let mockLoad: ReturnType<typeof vi.fn>
 let mockDestroy: ReturnType<typeof vi.fn>
@@ -227,5 +229,14 @@ describe('AlphaTabPane', () => {
 
     // Portal cleared — children removed from DOM
     expect(screen.queryByTestId('child')).toBeNull()
+  })
+
+  it('exposes scroll container via ref getScrollContainer()', () => {
+    const ref = createRef<AlphaTabPaneHandle>()
+    render(<AlphaTabPane ref={ref} buffer={null} />)
+
+    expect(ref.current).not.toBeNull()
+    const container = ref.current!.getScrollContainer()
+    expect(container).toBeInstanceOf(HTMLDivElement)
   })
 })

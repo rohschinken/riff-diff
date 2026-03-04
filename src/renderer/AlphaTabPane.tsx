@@ -1,9 +1,13 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle, type ReactNode } from 'react'
 import { createPortal, flushSync } from 'react-dom'
 import { AlphaTabApi, LayoutMode } from '@coderline/alphatab'
 import type { model } from '@coderline/alphatab'
 
 type Score = model.Score
+
+export interface AlphaTabPaneHandle {
+  getScrollContainer: () => HTMLDivElement | null
+}
 
 export interface AlphaTabPaneProps {
   buffer: ArrayBuffer | null
@@ -12,7 +16,8 @@ export interface AlphaTabPaneProps {
   children?: ReactNode
 }
 
-export function AlphaTabPane({ buffer, onRenderFinished, onScoreLoaded, children }: AlphaTabPaneProps) {
+export const AlphaTabPane = forwardRef<AlphaTabPaneHandle, AlphaTabPaneProps>(
+  function AlphaTabPane({ buffer, onRenderFinished, onScoreLoaded, children }, ref) {
   const containerRef = useRef<HTMLDivElement>(null)
   const onRenderFinishedRef = useRef(onRenderFinished)
   const onScoreLoadedRef = useRef(onScoreLoaded)
@@ -20,6 +25,10 @@ export function AlphaTabPane({ buffer, onRenderFinished, onScoreLoaded, children
 
   onRenderFinishedRef.current = onRenderFinished
   onScoreLoadedRef.current = onScoreLoaded
+
+  useImperativeHandle(ref, () => ({
+    getScrollContainer: () => containerRef.current,
+  }), [])
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -70,8 +79,9 @@ export function AlphaTabPane({ buffer, onRenderFinished, onScoreLoaded, children
   }, [buffer])
 
   return (
-    <div ref={containerRef} className="w-full h-full overflow-auto">
+    <div ref={containerRef} className="w-full h-full overflow-x-hidden overflow-y-auto">
       {surfaceEl && children ? createPortal(children, surfaceEl) : null}
     </div>
   )
-}
+  },
+)
