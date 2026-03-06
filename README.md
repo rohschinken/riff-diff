@@ -1,8 +1,10 @@
-![Riff-Diff](https://github.com/rohschinken/riff-diff/blob/main/assets/rd-desktop-icon-128.png?raw=true)
+![Riff-Diff Icon](https://github.com/rohschinken/riff-diff/blob/main/assets/rd-desktop-icon-128.png?raw=true)
 
 # Riff-Diff v1.0.0
 
 Visual diff tool for Guitar Pro 7/8 (`.gp`, `.gp7`, `.gp8`) files. Load two versions of a song and see exactly what changed — notes, tempo, time signatures — highlighted directly on the sheet music and tablature.
+
+![Riff-Diff Screenshot](https://github.com/rohschinken/riff-diff/blob/main/assets/Riff-Diff_Screenshot_1.png?raw=true)
 
 ## Try It
 
