@@ -19,11 +19,12 @@ const COLORS = {
   changed: DIFF_COLORS.changed.overlay,
   ghostAdded: DIFF_COLORS.added.ghost,
   ghostRemoved: DIFF_COLORS.removed.ghost,
-  tempoBadge: DIFF_COLORS.meta.solid,
+  tempoBadge: DIFF_COLORS.changed.solid,
 } as const
 
 interface OverlayRect {
   key: string
+  type: 'beat' | 'ghost'
   x: number
   y: number
   w: number
@@ -111,6 +112,7 @@ export function computeOverlays(
           seen.add(posKey)
           overlays.push({
             key: `beat-${measure.measureIndex}-${bi}-s${uniqueIdx}`,
+            type: 'beat',
             x,
             y,
             w,
@@ -128,6 +130,7 @@ export function computeOverlays(
             const ghostColor = bd.status === 'added' ? COLORS.ghostAdded : COLORS.ghostRemoved
             overlays.push({
               key: `ghost-${measure.measureIndex}`,
+              type: 'ghost',
               x: mbBounds.realBounds.x,
               y: mbBounds.realBounds.y,
               w: mbBounds.realBounds.w,
@@ -174,12 +177,12 @@ export function DiffOverlay({ diffResult, side, api, renderKey, filters }: DiffO
           data-testid={`overlay-${rect.key}`}
           style={{
             position: 'absolute',
-            left: rect.x,
+            left: rect.type === 'ghost' ? rect.x + 2 : rect.x - 9,
             top: rect.y,
-            width: rect.w,
+            width: rect.type === 'ghost' ? rect.w - 4 : rect.w,
             height: rect.h,
             backgroundColor: rect.color,
-            borderRadius: 2,
+            borderRadius: rect.type === 'ghost' ? 6 : 0,
           }}
         />
       ))}
@@ -189,8 +192,8 @@ export function DiffOverlay({ diffResult, side, api, renderKey, filters }: DiffO
           data-testid={`badge-${badge.key}`}
           style={{
             position: 'absolute',
-            left: badge.x,
-            top: badge.y - 22,
+            left: badge.x + 2,
+            top: badge.y - 24,
             zIndex: 20,
             backgroundColor: COLORS.tempoBadge,
             color: '#fff',

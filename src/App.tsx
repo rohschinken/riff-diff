@@ -58,6 +58,13 @@ function PaneHeader({ side, fileName, error, isLoading, onOpenFile }: {
       <span className="text-xs font-semibold uppercase tracking-wider text-chrome-text-muted w-4 shrink-0">
         {side}
       </span>
+      <button
+        onClick={onOpenFile}
+        disabled={isLoading}
+        className="text-xs px-3 py-1.5 bg-chrome-accent text-white rounded-md hover:bg-chrome-accent-hover transition-colors font-medium disabled:opacity-50"
+      >
+        {isLoading ? 'Loading\u2026' : fileName ? 'Change' : 'Open'}
+      </button>
       <div className="h-4 w-px bg-chrome-border" />
       {fileName ? (
         <span className="text-sm font-medium text-chrome-text truncate">{fileName}</span>
@@ -67,13 +74,6 @@ function PaneHeader({ side, fileName, error, isLoading, onOpenFile }: {
       {error && (
         <span className="text-xs text-red-500 bg-red-50 px-2 py-0.5 rounded truncate">{error}</span>
       )}
-      <button
-        onClick={onOpenFile}
-        disabled={isLoading}
-        className="ml-auto text-xs px-3 py-1.5 bg-chrome-accent text-white rounded-md hover:bg-chrome-accent-hover transition-colors font-medium disabled:opacity-50"
-      >
-        {isLoading ? 'Loading\u2026' : fileName ? 'Change' : 'Open'}
-      </button>
     </div>
   )
 }

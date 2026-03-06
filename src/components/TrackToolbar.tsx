@@ -47,14 +47,17 @@ export function TrackToolbar({
       {hasMismatch && (
         <>
           <span className="text-xs text-amber-700 bg-amber-100 px-2.5 py-1 rounded-md font-medium">
-            Track count mismatch
+            Track count mismatch!
           </span>
 
-          <div className="flex items-center gap-2 ml-auto">
+          <span className="text-xs text-chrome-text-muted font-medium ml-auto">
+            Track mapping:
+          </span>
+          <div className="flex items-center gap-2">
             <label className="text-xs text-chrome-text-muted">
               A:
               <select
-                className="ml-1 text-sm border border-chrome-border rounded-md px-1 bg-chrome-bg-subtle text-chrome-text"
+                className="ml-1 text-sm border border-chrome-border rounded-md px-1 bg-chrome-accent text-white"
                 value={trackMapA}
                 onChange={(e) => onTrackMapChange('A', Number(e.target.value))}
               >
@@ -66,7 +69,7 @@ export function TrackToolbar({
             <label className="text-xs text-chrome-text-muted">
               B:
               <select
-                className="ml-1 text-sm border border-chrome-border rounded-md px-1 bg-chrome-bg-subtle text-chrome-text"
+                className="ml-1 text-sm border border-chrome-border rounded-md px-1 bg-chrome-accent text-white"
                 value={trackMapB}
                 onChange={(e) => onTrackMapChange('B', Number(e.target.value))}
               >
