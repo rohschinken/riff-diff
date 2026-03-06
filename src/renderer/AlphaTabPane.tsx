@@ -11,18 +11,24 @@ export interface AlphaTabPaneHandle {
 
 export interface AlphaTabPaneProps {
   buffer: ArrayBuffer | null
-  onRenderFinished?: (api: AlphaTabApi) => void
+  scale?: number
+  onRenderStarted?: () => void
+  onRenderFinished?: (api: AlphaTabApi, contentWidth: number) => void
   onScoreLoaded?: (score: Score) => void
   children?: ReactNode
 }
 
 export const AlphaTabPane = forwardRef<AlphaTabPaneHandle, AlphaTabPaneProps>(
-  function AlphaTabPane({ buffer, onRenderFinished, onScoreLoaded, children }, ref) {
+  function AlphaTabPane({ buffer, scale = 1.0, onRenderStarted, onRenderFinished, onScoreLoaded, children }, ref) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const apiRef = useRef<AlphaTabApi | null>(null)
+  const initialScaleRef = useRef(scale)
+  const onRenderStartedRef = useRef(onRenderStarted)
   const onRenderFinishedRef = useRef(onRenderFinished)
   const onScoreLoadedRef = useRef(onScoreLoaded)
   const [surfaceEl, setSurfaceEl] = useState<HTMLElement | null>(null)
 
+  onRenderStartedRef.current = onRenderStarted
   onRenderFinishedRef.current = onRenderFinished
   onScoreLoadedRef.current = onScoreLoaded
 
@@ -40,6 +46,7 @@ export const AlphaTabPane = forwardRef<AlphaTabPaneHandle, AlphaTabPaneProps>(
       },
       display: {
         layoutMode: LayoutMode.Horizontal,
+        scale,
       },
       player: {
         enablePlayer: false,
@@ -54,23 +61,46 @@ export const AlphaTabPane = forwardRef<AlphaTabPaneHandle, AlphaTabPaneProps>(
       flushSync(() => {
         setSurfaceEl(null)
       })
+      onRenderStartedRef.current?.()
     })
 
     const unsubRender = api.postRenderFinished.on(() => {
       const surface = containerRef.current?.querySelector('.at-surface') as HTMLElement | null
       setSurfaceEl(surface)
-      onRenderFinishedRef.current?.(api)
+      // Compute actual content width from children's rightmost edge.
+      // alphaTab sets the surface width independently of zoom scale,
+      // so scrollWidth is only accurate when children overflow the surface.
+      let contentWidth = 0
+      if (surface) {
+        for (let i = 0; i < surface.children.length; i++) {
+          const child = surface.children[i] as HTMLElement
+          const right = child.offsetLeft + child.offsetWidth
+          if (right > contentWidth) contentWidth = right
+        }
+        // alphaTab sets surface width independently of zoom, so at >100%
+        // children overflow the surface and the container can't scroll far enough.
+        // Fix by expanding the surface to match the actual content extent.
+        contentWidth += 30
+        if (contentWidth > surface.offsetWidth) {
+          surface.style.width = contentWidth + 'px'
+        }
+      }
+      onRenderFinishedRef.current?.(api, contentWidth)
     })
 
     const unsubScore = api.scoreLoaded.on((score: Score) => {
       onScoreLoadedRef.current?.(score)
     })
 
+    apiRef.current = api
+    initialScaleRef.current = scale
+
     if (buffer !== null) {
       api.load(buffer)
     }
 
     return () => {
+      apiRef.current = null
       unsubRenderStarted()
       unsubRender()
       unsubScore()
@@ -78,6 +108,18 @@ export const AlphaTabPane = forwardRef<AlphaTabPaneHandle, AlphaTabPaneProps>(
       api.destroy()
     }
   }, [buffer])
+
+  // Update zoom scale without recreating the API
+  useEffect(() => {
+    // Skip if this is the initial mount (API creation effect already set scale)
+    if (scale === initialScaleRef.current) return
+    const api = apiRef.current
+    if (!api) return
+    api.settings.display.scale = scale
+    api.updateSettings()
+    api.render()
+    initialScaleRef.current = scale
+  }, [scale])
 
   return (
     <div ref={containerRef} className="w-full h-full overflow-x-hidden overflow-y-auto">

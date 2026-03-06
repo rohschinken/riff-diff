@@ -85,9 +85,10 @@ export interface DiffMinimapProps {
   diffResult: DiffResult | null
   filters: DiffFilters
   scrollbarEl: HTMLElement | null
+  contentWidth?: number
 }
 
-export function DiffMinimap({ diffResult, filters, scrollbarEl }: DiffMinimapProps) {
+export function DiffMinimap({ diffResult, filters, scrollbarEl, contentWidth }: DiffMinimapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const isDraggingRef = useRef(false)
@@ -120,7 +121,7 @@ export function DiffMinimap({ diffResult, filters, scrollbarEl }: DiffMinimapPro
     }
 
     drawMinimap(ctx, cssWidth, cssHeight, statuses, viewport)
-  }, [diffResult, filters, scrollbarEl])
+  }, [diffResult, filters, scrollbarEl, contentWidth])
 
   // Redraw on diffResult/filters/scrollbarEl change
   useEffect(() => {

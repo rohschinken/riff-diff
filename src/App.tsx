@@ -14,6 +14,9 @@ import { useFileLoader } from './hooks/useFileLoader'
 import { useSyncScroll } from './hooks/useSyncScroll'
 import { useTheme } from './hooks/useTheme'
 import { useNotationToggle } from './hooks/useNotationToggle'
+import { useDropZone } from './hooks/useDropZone'
+import { useZoom } from './hooks/useZoom'
+import { LoadingOverlay } from './components/LoadingOverlay'
 import { forceStaveVisibility } from './forceStaveVisibility'
 import { diffScores } from './diff/diffEngine'
 import { DEFAULT_DIFF_FILTERS } from './diff/types'
@@ -98,6 +101,10 @@ function App() {
   const showNotationRef = useRef(showNotation)
   showNotationRef.current = showNotation
 
+  const dropA = useDropZone(fileA.loadFromFile)
+  const dropB = useDropZone(fileB.loadFromFile)
+  const { zoomLevel, zoomIn, zoomOut, resetZoom, canZoomIn, canZoomOut } = useZoom()
+
   const apiARef = useRef<AlphaTabApi | null>(null)
   const apiBRef = useRef<AlphaTabApi | null>(null)
   const scoreARef = useRef<Score | null>(null)
@@ -115,6 +122,8 @@ function App() {
   const [diffResult, setDiffResult] = useState<DiffResult | null>(null)
   const [renderKeyA, setRenderKeyA] = useState(0)
   const [renderKeyB, setRenderKeyB] = useState(0)
+  const [isRenderingA, setIsRenderingA] = useState(false)
+  const [isRenderingB, setIsRenderingB] = useState(false)
   const [filters, setFilters] = useState<DiffFilters>(DEFAULT_DIFF_FILTERS)
 
   const [scrollElA, setScrollElA] = useState<HTMLElement | null>(null)
@@ -122,21 +131,37 @@ function App() {
   const [scrollWidthA, setScrollWidthA] = useState(0)
   const [scrollWidthB, setScrollWidthB] = useState(0)
   const [scrollbarEl, setScrollbarEl] = useState<HTMLDivElement | null>(null)
+  const scrollFractionRef = useRef<number | null>(null)
+  const prevZoomRef = useRef(zoomLevel)
 
-  const handleRenderFinishedA = useCallback((api: AlphaTabApi) => {
+  // Capture scroll fraction synchronously when zoom changes (before effects fire)
+  if (zoomLevel !== prevZoomRef.current) {
+    prevZoomRef.current = zoomLevel
+    if (scrollbarEl) {
+      const maxScroll = scrollbarEl.scrollWidth - scrollbarEl.clientWidth
+      scrollFractionRef.current = maxScroll > 0 ? scrollbarEl.scrollLeft / maxScroll : 0
+    }
+  }
+
+  const handleRenderStartedA = useCallback(() => setIsRenderingA(true), [])
+  const handleRenderStartedB = useCallback(() => setIsRenderingB(true), [])
+
+  const handleRenderFinishedA = useCallback((api: AlphaTabApi, contentWidth: number) => {
     apiARef.current = api
+    setIsRenderingA(false)
     setRenderKeyA((prev) => prev + 1)
     const el = paneARef.current?.getScrollContainer() ?? null
     setScrollElA(el)
-    setScrollWidthA(el?.scrollWidth ?? 0)
+    setScrollWidthA(contentWidth)
   }, [])
 
-  const handleRenderFinishedB = useCallback((api: AlphaTabApi) => {
+  const handleRenderFinishedB = useCallback((api: AlphaTabApi, contentWidth: number) => {
     apiBRef.current = api
+    setIsRenderingB(false)
     setRenderKeyB((prev) => prev + 1)
     const el = paneBRef.current?.getScrollContainer() ?? null
     setScrollElB(el)
-    setScrollWidthB(el?.scrollWidth ?? 0)
+    setScrollWidthB(contentWidth)
   }, [])
 
   const handleScoreLoadedA = useCallback((score: Score) => {
@@ -172,6 +197,34 @@ function App() {
   }, [fileB.fileData])
 
   useSyncScroll(scrollElA, scrollElB, scrollbarEl)
+
+  // Restore scroll fraction after zoom causes re-render (scrollWidth changes)
+  useEffect(() => {
+    if (scrollFractionRef.current !== null && scrollbarEl) {
+      const maxScroll = scrollbarEl.scrollWidth - scrollbarEl.clientWidth
+      scrollbarEl.scrollLeft = scrollFractionRef.current * maxScroll
+      scrollFractionRef.current = null
+    }
+  }, [scrollWidthA, scrollWidthB, scrollbarEl])
+
+  // Keyboard shortcuts for zoom
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return
+      if (e.key === '=' || e.key === '+') {
+        e.preventDefault()
+        zoomIn()
+      } else if (e.key === '-') {
+        e.preventDefault()
+        zoomOut()
+      } else if (e.key === '0') {
+        e.preventDefault()
+        resetZoom()
+      }
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [zoomIn, zoomOut, resetZoom])
 
   // Re-apply stave visibility and re-render when notation toggle changes
   useEffect(() => {
@@ -235,6 +288,38 @@ function App() {
           />
         </div>
         <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 mr-2">
+            <button
+              onClick={zoomOut}
+              disabled={!canZoomOut}
+              className="p-1.5 rounded text-chrome-text-muted hover:bg-chrome-bg-subtle hover:text-chrome-text transition-colors disabled:opacity-30 disabled:cursor-default"
+              aria-label="Zoom out"
+              title="Zoom out (Ctrl+-)"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
+              </svg>
+            </button>
+            <button
+              onClick={resetZoom}
+              className="text-xs font-medium text-chrome-text-muted hover:text-chrome-text tabular-nums min-w-[3rem] text-center"
+              title="Reset zoom (Ctrl+0)"
+            >
+              {Math.round(zoomLevel * 100)}%
+            </button>
+            <button
+              onClick={zoomIn}
+              disabled={!canZoomIn}
+              className="p-1.5 rounded text-chrome-text-muted hover:bg-chrome-bg-subtle hover:text-chrome-text transition-colors disabled:opacity-30 disabled:cursor-default"
+              aria-label="Zoom in"
+              title="Zoom in (Ctrl++)"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m-7-7h14" />
+              </svg>
+            </button>
+          </div>
+          <div className="h-5 w-px bg-chrome-border" />
           <button
             onClick={toggleNotation}
             className={`p-2 rounded-lg transition-colors ${showNotation ? 'text-chrome-text-muted hover:bg-chrome-bg-subtle hover:text-chrome-text' : 'text-chrome-text-muted/40 hover:bg-chrome-bg-subtle hover:text-chrome-text-muted'}`}
@@ -282,7 +367,7 @@ function App() {
         <div className="flex-1 min-h-0">
         <SplitPane
           top={
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-full relative" {...dropA.dropHandlers}>
               <PaneHeader
                 side="A"
                 fileName={fileA.fileData?.fileName ?? null}
@@ -290,11 +375,13 @@ function App() {
                 isLoading={fileA.isLoading}
                 onOpenFile={fileA.openFilePicker}
               />
-              <div className="flex-1 overflow-hidden">
+              <div className="flex-1 overflow-hidden relative">
                 {fileA.fileData ? (
                   <AlphaTabPane
                     ref={paneARef}
                     buffer={fileA.fileData.buffer}
+                    scale={zoomLevel}
+                    onRenderStarted={handleRenderStartedA}
                     onRenderFinished={handleRenderFinishedA}
                     onScoreLoaded={handleScoreLoadedA}
                   >
@@ -309,11 +396,17 @@ function App() {
                 ) : (
                   <EmptyPane side="A" onOpenFile={fileA.openFilePicker} isLoading={fileA.isLoading} />
                 )}
+                <LoadingOverlay visible={fileA.isLoading || isRenderingA} testId="loading-overlay-A" />
               </div>
+              {dropA.isDragOver && (
+                <div className="absolute inset-0 top-10 z-50 flex items-center justify-center bg-chrome-accent/10 border-2 border-dashed border-chrome-accent rounded-lg pointer-events-none" data-testid="drop-overlay-A">
+                  <span className="text-chrome-accent font-semibold text-sm">Drop GP file here</span>
+                </div>
+              )}
             </div>
           }
           bottom={
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-full relative" {...dropB.dropHandlers}>
               <PaneHeader
                 side="B"
                 fileName={fileB.fileData?.fileName ?? null}
@@ -321,11 +414,13 @@ function App() {
                 isLoading={fileB.isLoading}
                 onOpenFile={fileB.openFilePicker}
               />
-              <div className="flex-1 overflow-hidden">
+              <div className="flex-1 overflow-hidden relative">
                 {fileB.fileData ? (
                   <AlphaTabPane
                     ref={paneBRef}
                     buffer={fileB.fileData.buffer}
+                    scale={zoomLevel}
+                    onRenderStarted={handleRenderStartedB}
                     onRenderFinished={handleRenderFinishedB}
                     onScoreLoaded={handleScoreLoadedB}
                   >
@@ -340,7 +435,13 @@ function App() {
                 ) : (
                   <EmptyPane side="B" onOpenFile={fileB.openFilePicker} isLoading={fileB.isLoading} />
                 )}
+                <LoadingOverlay visible={fileB.isLoading || isRenderingB} testId="loading-overlay-B" />
               </div>
+              {dropB.isDragOver && (
+                <div className="absolute inset-0 top-10 z-50 flex items-center justify-center bg-chrome-accent/10 border-2 border-dashed border-chrome-accent rounded-lg pointer-events-none" data-testid="drop-overlay-B">
+                  <span className="text-chrome-accent font-semibold text-sm">Drop GP file here</span>
+                </div>
+              )}
             </div>
           }
         />
@@ -350,6 +451,7 @@ function App() {
             diffResult={diffResult}
             filters={filters}
             scrollbarEl={scrollbarEl}
+            contentWidth={Math.max(scrollWidthA, scrollWidthB)}
           />
           {(scrollWidthA > 0 || scrollWidthB > 0) && (
             <div

@@ -6,6 +6,9 @@ import type { AlphaTabPaneHandle } from './AlphaTabPane'
 
 let mockLoad: ReturnType<typeof vi.fn>
 let mockDestroy: ReturnType<typeof vi.fn>
+let mockUpdateSettings: ReturnType<typeof vi.fn>
+let mockRender: ReturnType<typeof vi.fn>
+let mockSettings: { display: { scale: number } }
 let mockPostRenderOn: ReturnType<typeof vi.fn>
 let mockUnsubscribe: ReturnType<typeof vi.fn>
 let mockScoreLoadedOn: ReturnType<typeof vi.fn>
@@ -36,6 +39,9 @@ vi.mock('@coderline/alphatab', () => {
       element.appendChild(surface)
       this.load = mockLoad
       this.destroy = mockDestroy
+      ;(this as any).updateSettings = mockUpdateSettings
+      ;(this as any).render = mockRender
+      ;(this as any).settings = mockSettings
       this.renderStarted = { on: mockRenderStartedOn, off: vi.fn() }
       this.postRenderFinished = { on: mockPostRenderOn, off: vi.fn() }
       this.scoreLoaded = { on: mockScoreLoadedOn, off: vi.fn() }
@@ -53,6 +59,9 @@ describe('AlphaTabPane', () => {
     capturedRenderStartedHandler = null
     mockLoad = vi.fn()
     mockDestroy = vi.fn()
+    mockUpdateSettings = vi.fn()
+    mockRender = vi.fn()
+    mockSettings = { display: { scale: 1.0 } }
     mockUnsubscribe = vi.fn()
     mockScoreLoadedUnsubscribe = vi.fn()
     mockRenderStartedUnsubscribe = vi.fn()
@@ -231,6 +240,19 @@ describe('AlphaTabPane', () => {
     expect(screen.queryByTestId('child')).toBeNull()
   })
 
+  it('fires onRenderStarted when renderStarted emits', () => {
+    const onRenderStarted = vi.fn()
+    render(<AlphaTabPane buffer={new ArrayBuffer(8)} onRenderStarted={onRenderStarted} />)
+
+    expect(onRenderStarted).not.toHaveBeenCalled()
+
+    act(() => {
+      capturedRenderStartedHandler?.(false)
+    })
+
+    expect(onRenderStarted).toHaveBeenCalledOnce()
+  })
+
   it('exposes scroll container via ref getScrollContainer()', () => {
     const ref = createRef<AlphaTabPaneHandle>()
     render(<AlphaTabPane ref={ref} buffer={null} />)
@@ -238,5 +260,26 @@ describe('AlphaTabPane', () => {
     expect(ref.current).not.toBeNull()
     const container = ref.current!.getScrollContainer()
     expect(container).toBeInstanceOf(HTMLDivElement)
+  })
+
+  it('passes scale to AlphaTabApi display settings', () => {
+    render(<AlphaTabPane buffer={null} scale={1.5} />)
+
+    const display = capturedOptions!.display as Record<string, unknown>
+    expect(display.scale).toBe(1.5)
+  })
+
+  it('calls updateSettings and render when scale changes', () => {
+    const buf = new ArrayBuffer(8)
+    const { rerender } = render(<AlphaTabPane buffer={buf} scale={1.0} />)
+
+    mockUpdateSettings.mockClear()
+    mockRender.mockClear()
+
+    rerender(<AlphaTabPane buffer={buf} scale={1.5} />)
+
+    expect(mockSettings.display.scale).toBe(1.5)
+    expect(mockUpdateSettings).toHaveBeenCalledOnce()
+    expect(mockRender).toHaveBeenCalledOnce()
   })
 })

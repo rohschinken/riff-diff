@@ -183,8 +183,10 @@ riff-diff/
 │   │   ├── TrackToolbar.test.tsx    8 tests
 │   │   ├── DiffFilterBar.tsx        Four colored pill toggle buttons with live counts
 │   │   ├── DiffFilterBar.test.tsx   13 tests
-│   │   ├── DiffMinimap.tsx          Canvas minimap with shared DIFF_COLORS
-│   │   └── DiffMinimap.test.tsx     16 tests
+│   │   ├── DiffMinimap.tsx          Canvas minimap with shared DIFF_COLORS + contentWidth prop
+│   │   ├── DiffMinimap.test.tsx     16 tests
+│   │   ├── LoadingOverlay.tsx       Spinner overlay (visible/hidden)
+│   │   └── LoadingOverlay.test.tsx  4 tests
 │   ├── diff/
 │   │   ├── types.ts                 DiffResult, BeatDiff, NoteDiff, MeasureDiff, DiffFilters
 │   │   ├── colors.ts               Shared DIFF_COLORS palette (solid, rgb, overlay, ghost)
@@ -192,14 +194,20 @@ riff-diff/
 │   │   └── diffEngine.test.ts      15 tests
 │   ├── hooks/
 │   │   ├── useFileLoader.ts         File picker (web + Tauri), extension validation
-│   │   ├── useFileLoader.test.ts    11 tests
+│   │   ├── useFileLoader.test.ts    14 tests
 │   │   ├── useSyncScroll.ts         Shared scrollbar scroll sync hook
 │   │   ├── useSyncScroll.test.ts    7 tests
 │   │   ├── useTheme.ts             Theme toggle hook (light / dark-chrome)
-│   │   └── useTheme.test.ts        5 tests
+│   │   ├── useTheme.test.ts        5 tests
+│   │   ├── useDropZone.ts          Drag-and-drop hook with enter/leave counter
+│   │   ├── useDropZone.test.ts     9 tests
+│   │   ├── useZoom.ts              Zoom state with 7 steps, localStorage persistence
+│   │   ├── useZoom.test.ts         9 tests
+│   │   ├── useNotationToggle.ts    Notation toggle hook with localStorage
+│   │   └── useNotationToggle.test.ts 5 tests
 │   ├── renderer/
-│   │   ├── AlphaTabPane.tsx         alphaTab API wrapper with forwardRef + portal lifecycle
-│   │   ├── AlphaTabPane.test.tsx    15 tests
+│   │   ├── AlphaTabPane.tsx         alphaTab API wrapper with forwardRef + portal + scale + content width
+│   │   ├── AlphaTabPane.test.tsx    18 tests
 │   │   ├── DiffOverlay.tsx          Diff overlay with shared DIFF_COLORS, indigo badges
 │   │   └── DiffOverlay.test.tsx     18 tests
 │   └── test/
@@ -230,9 +238,9 @@ riff-diff/
 | 8 Diff Filter Toggles | **COMPLETE** | +13 (DiffFilterBar) |
 | 9 UI Polish | **COMPLETE** | +5 (useTheme) |
 | 10 Tauri Desktop | **COMPLETE** | +3 (useFileLoader Tauri edge cases) |
-| 11 UX Enhancements | Not started | — |
+| 11 UX Enhancements | **COMPLETE** | +34 (useDropZone 9, useZoom 9, LoadingOverlay 4, AlphaTabPane 3, notation toggle 5, zoom hook 4) |
 
-**Total: 113 tests passing**, `npm run build` clean, `npm run tauri:build` produces installers.
+**Total: 147 tests passing**, `npm run build` clean, `npm run tauri:build` produces installers.
 
 ---
 
@@ -464,27 +472,75 @@ Diff colors (`diff-added`, `diff-removed`, `diff-changed`, `diff-meta`, `diff-eq
 
 ---
 
-### Phase 11 — UX Enhancements (Deferred from Phase 9)
-**Agents:** UX Engineer (leads), Lead Engineer, QA Engineer, Musician
+### Phase 11 — UX Enhancements ✅ COMPLETE
 
-**Scope:** Features originally planned for Phase 9 that were deferred to keep that phase focused on visual redesign only.
+**Scope:** Three UX features prioritized by user: drag-and-drop (high), loading spinner (medium), zoom controls (medium). Keyboard shortcuts and diff navigation were excluded from scope.
 
-**Implement:**
-- **Keyboard shortcuts**: `←`/`→` scroll 200px, `1`–`9` switch track, `[`/`]` jump to prev/next diff measure, `A`/`R`/`C`/`T` toggle filters
-- **Zoom controls**: `+`/`−` buttons in header, calls `api.updateSettings({ display: { scale } }) + api.render()` on both panes
-- **Drag-and-drop file loading**: `DropZone` overlay on each pane — drop a `.gp`/`.gp7`/`.gp8` file to load it
-- **Spinner overlay**: visual indicator during alphaTab render (between `renderStarted` and `postRenderFinished`)
-- **Diff navigation**: "Previous diff" / "Next diff" buttons using `masterBarBounds.realBounds.x` to scroll to the next measure with a non-equal status
+**What was built:**
 
-**Tests (planned):**
-- Keyboard shortcut `[` scrolls to previous diff measure
-- Keyboard shortcut `→` scrolls right by 200px
-- Drop event with valid `.gp` file calls `onFileLoaded`
-- Drop event with invalid extension shows error
-- Zoom in increments `settings.display.scale` by 0.1
-- Spinner visible during render, hidden after `postRenderFinished`
+1. **Drag-and-drop file loading**
+   - `src/hooks/useDropZone.ts` — hook with enter/leave counter pattern to prevent flicker from nested DOM elements
+   - Per-pane drop zones: drop a `.gp/.gp7/.gp8` file onto top pane → File A, bottom pane → File B
+   - Visual drop overlay with dashed border and "Drop GP file here" text
+   - Reuses existing `loadFromFile(file: File)` from `useFileLoader`
 
-**Phase gate:** All tests pass. Musician confirms keyboard navigation and diff jumping work intuitively. UX signs off on drag-and-drop and zoom interactions.
+2. **Loading spinner overlay**
+   - `src/components/LoadingOverlay.tsx` — semi-transparent overlay with CSS spinner animation
+   - Visible during both file reading (`isLoading`) and alphaTab rendering (between `renderStarted` and `postRenderFinished`)
+   - `AlphaTabPane` gained `onRenderStarted` callback prop
+
+3. **Zoom controls**
+   - `src/hooks/useZoom.ts` — zoom state with 7 steps (0.25–2.0×), localStorage persistence
+   - Header buttons: `[-]` zoom out, percentage label (click to reset), `[+]` zoom in
+   - Keyboard shortcuts: Ctrl/Cmd +/-/0
+   - Both panes zoom together via `scale` prop on `AlphaTabPane`
+   - `AlphaTabPane` gained `scale` prop with update effect: `api.settings.display.scale` + `updateSettings()` + `render()`
+
+4. **Notation toggle** (bonus, implemented in Phase 10)
+   - `src/hooks/useNotationToggle.ts` — show/hide standard notation stave, localStorage persistence
+   - Percussion tracks always keep notation on (alphaTab can't render tab for percussion)
+
+**Key decisions & bug fixes:**
+
+- **`initialScaleRef` pattern** — guards against running scale update effect on initial mount. Must update `initialScaleRef.current = scale` after each scale change to prevent stale comparisons (bug: reset-to-100% was skipped because it matched the stale initial value).
+
+- **alphaTab surface width doesn't track zoom** — alphaTab sets `.at-surface` width independently of `display.scale`. At >100% zoom, children overflow the surface; at <100%, the surface is wider than content. Fix: compute actual content width from children's rightmost edge (`offsetLeft + offsetWidth`), then expand the surface element if children overflow. A 30px right-side gap is added for visual padding.
+
+- **Content width for scrollbar/minimap** — `onRenderFinished` callback now passes `(api, contentWidth)` so the scrollbar and minimap can size correctly at any zoom level. Previously used `container.scrollWidth` which was unreliable due to `overflow-x: hidden`.
+
+- **Scroll position preservation on zoom** — Captures scroll fraction synchronously during render when zoom changes, then restores it via `useEffect` after `scrollWidthA`/`scrollWidthB` update.
+
+- **Minimap redraws on content width change** — `DiffMinimap` gained `contentWidth` prop included in `redraw` callback dependency, ensuring viewport indicator stays in sync after zoom.
+
+- **Vitest `vi.mock` hoisting** — Adding class property declarations inside `vi.mock` factory caused `Cannot access before initialization` errors. Fixed by using `(this as any)` constructor assignments instead of class-level declarations.
+
+**Files created:**
+| File | Purpose |
+|------|---------|
+| `src/hooks/useDropZone.ts` | Drag-and-drop hook with enter/leave counter |
+| `src/hooks/useDropZone.test.ts` | 9 tests |
+| `src/hooks/useZoom.ts` | Zoom state hook with localStorage |
+| `src/hooks/useZoom.test.ts` | 9 tests |
+| `src/components/LoadingOverlay.tsx` | Spinner overlay component |
+| `src/components/LoadingOverlay.test.tsx` | 4 tests |
+| `src/hooks/useNotationToggle.ts` | Notation toggle hook with localStorage |
+| `src/hooks/useNotationToggle.test.ts` | 5 tests |
+
+**Files modified:**
+| File | Change |
+|------|--------|
+| `src/App.tsx` | Wired all features: drop zones, spinner state, zoom hook + header buttons + keyboard shortcuts, notation toggle, scroll fraction preservation |
+| `src/renderer/AlphaTabPane.tsx` | Added `onRenderStarted`, `scale` prop, `apiRef`, content width calculation, surface width fix |
+| `src/renderer/AlphaTabPane.test.tsx` | +3 tests (onRenderStarted, scale settings, scale update) |
+| `src/components/DiffMinimap.tsx` | Added `contentWidth` prop for zoom-aware redraws |
+| `src/forceStaveVisibility.ts` | Added `showNotation` parameter |
+| `src/forceStaveVisibility.test.ts` | +4 tests for notation toggle |
+
+**Tests: 147 total (34 new).** `npm run build` clean.
+
+**Deferred (out of scope per user):**
+- Keyboard shortcuts for scrolling, track switching, diff jumping, filter toggles
+- Diff navigation (prev/next diff buttons)
 
 ---
 
@@ -502,7 +558,7 @@ Diff colors (`diff-added`, `diff-removed`, `diff-changed`, `diff-meta`, `diff-eq
 | 8 Filters | ✅ done | ✅ done | ✅ done | ✅ done | — |
 | 9 Polish | ✅ done | ✅ done | ✅ done | ✅ done | ✅ done |
 | 10 Tauri | ✅ done | ✅ done | — | — | ✅ done |
-| 11 UX Enhancements | ✅ req | ✅ req | ✅ leads | ✅ req | — |
+| 11 UX Enhancements | ✅ done | ✅ done | ✅ done | ✅ done | ✅ done |
 
 ---
 
@@ -552,3 +608,11 @@ Diff colors (`diff-added`, `diff-removed`, `diff-changed`, `diff-meta`, `diff-eq
 17. **alphaTab resolves worker path via `import.meta.url`** — In production bundles, alphaTab's first attempt to create a worker uses `new URL('./alphaTab.worker.mjs', import.meta.url)`, which resolves relative to the bundled JS in `/assets/`. Worker files must exist at both `/` (for explicit `scriptFile` setting) and `/assets/` (for `import.meta.url` resolution).
 
 18. **alphaTab `fontDirectory` auto-detection wrong in production** — `Environment._detectFontDirectory()` derives the font path from `Environment.scriptFile` (set via `import.meta.url` → `/assets/index-*.js`), producing `/assets/font/` instead of `/font/`. Explicitly set `core.fontDirectory: '/font/'` to override.
+
+19. **alphaTab `.at-surface` width doesn't track zoom scale** — alphaTab sets the surface element's width independently of `display.scale`. At >100% zoom, children overflow the surface (scrollWidth > offsetWidth); at <100%, the surface is wider than content (scrollWidth = offsetWidth, but content is narrower). Fix: after `postRenderFinished`, compute actual content width from children's rightmost edge (`offsetLeft + offsetWidth`) and expand the surface if needed.
+
+20. **`container.scrollWidth` unreliable with `overflow-x: hidden`** — When the container has `overflow-x: hidden` and the surface uses absolute positioning, `scrollWidth` may not reflect the actual content extent. Read content width from child elements directly and pass it explicitly via callbacks rather than relying on `scrollWidth`.
+
+21. **Vitest `vi.mock` class property declarations cause hoisting crash** — Adding typed class property declarations (e.g. `updateSettings: ReturnType<typeof vi.fn>`) inside a `vi.mock` factory class can cause `Cannot access '__vi_import_2__' before initialization`. Workaround: omit class property declarations and use `(this as any).prop = value` in the constructor.
+
+22. **Zoom scale effect must update guard ref** — When using a ref to skip the scale update effect on initial mount (`initialScaleRef`), the ref must be updated to the new scale value at the end of the effect. Otherwise, resetting zoom back to the initial value (e.g. 1.0) will match the stale ref and skip the update.
