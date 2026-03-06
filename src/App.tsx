@@ -13,6 +13,8 @@ import { DiffFilterBar } from './components/DiffFilterBar'
 import { useFileLoader } from './hooks/useFileLoader'
 import { useSyncScroll } from './hooks/useSyncScroll'
 import { useTheme } from './hooks/useTheme'
+import { useNotationToggle } from './hooks/useNotationToggle'
+import { forceStaveVisibility } from './forceStaveVisibility'
 import { diffScores } from './diff/diffEngine'
 import { DEFAULT_DIFF_FILTERS } from './diff/types'
 import type { DiffResult, DiffFilters } from './diff/types'
@@ -82,21 +84,6 @@ function extractTracks(score: Score): TrackInfo[] {
   return score.tracks.map((t) => ({ index: t.index, name: t.name }))
 }
 
-/**
- * Force all staves to show both standard notation and tablature.
- * GP files store per-staff view preferences that we ignore — our diff
- * tool always needs consistent rendering across both panes.
- * Percussion tracks especially need this: alphaTab hides the tab renderer
- * on percussion, so without standard notation there are zero renderers.
- */
-function forceStaveVisibility(score: Score) {
-  for (const track of score.tracks) {
-    for (const staff of track.staves) {
-      staff.showStandardNotation = true
-      staff.showTablature = true
-    }
-  }
-}
 
 function renderTrackOnApi(api: AlphaTabApi, trackIndex: number) {
   const track = api.score?.tracks[trackIndex]
@@ -107,6 +94,9 @@ function App() {
   const fileA = useFileLoader()
   const fileB = useFileLoader()
   const { theme, toggleTheme } = useTheme()
+  const { showNotation, toggleNotation } = useNotationToggle()
+  const showNotationRef = useRef(showNotation)
+  showNotationRef.current = showNotation
 
   const apiARef = useRef<AlphaTabApi | null>(null)
   const apiBRef = useRef<AlphaTabApi | null>(null)
@@ -150,7 +140,7 @@ function App() {
   }, [])
 
   const handleScoreLoadedA = useCallback((score: Score) => {
-    forceStaveVisibility(score)
+    forceStaveVisibility(score, showNotationRef.current)
     scoreARef.current = score
     setTracksA(extractTracks(score))
     setSelectedTrackIndex(0)
@@ -159,7 +149,7 @@ function App() {
   }, [])
 
   const handleScoreLoadedB = useCallback((score: Score) => {
-    forceStaveVisibility(score)
+    forceStaveVisibility(score, showNotationRef.current)
     scoreBRef.current = score
     setTracksB(extractTracks(score))
     setTrackMapB(0)
@@ -182,6 +172,19 @@ function App() {
   }, [fileB.fileData])
 
   useSyncScroll(scrollElA, scrollElB, scrollbarEl)
+
+  // Re-apply stave visibility and re-render when notation toggle changes
+  useEffect(() => {
+    if (scoreARef.current) {
+      forceStaveVisibility(scoreARef.current, showNotation)
+      if (apiARef.current) renderTrackOnApi(apiARef.current, trackMapA)
+    }
+    if (scoreBRef.current) {
+      forceStaveVisibility(scoreBRef.current, showNotation)
+      if (apiBRef.current) renderTrackOnApi(apiBRef.current, trackMapB)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showNotation])
 
   // Compute diff when both scores are loaded or track selection changes
   useEffect(() => {
@@ -231,6 +234,23 @@ function App() {
             summary={diffResult?.summary ?? null}
           />
         </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={toggleNotation}
+            className={`p-2 rounded-lg transition-colors ${showNotation ? 'text-chrome-text-muted hover:bg-chrome-bg-subtle hover:text-chrome-text' : 'text-chrome-text-muted/40 hover:bg-chrome-bg-subtle hover:text-chrome-text-muted'}`}
+            aria-label={showNotation ? 'Hide standard notation' : 'Show standard notation'}
+            title={showNotation ? 'Hide standard notation' : 'Show standard notation'}
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M3 10h18M3 14h18M3 18h18" />
+              {showNotation && (
+                <circle cx="17" cy="10" r="2.5" fill="currentColor" stroke="none" />
+              )}
+              {!showNotation && (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 2l20 20" />
+              )}
+            </svg>
+          </button>
         <button
           onClick={toggleTheme}
           className="p-2 rounded-lg text-chrome-text-muted hover:bg-chrome-bg-subtle hover:text-chrome-text transition-colors"
@@ -247,6 +267,7 @@ function App() {
             </svg>
           )}
         </button>
+        </div>
       </header>
       <TrackToolbar
         tracksA={tracksA}
