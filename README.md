@@ -1,6 +1,12 @@
-# Riff-Diff
+# Riff-Diff v1.0.0
 
 Visual diff tool for Guitar Pro 7/8 (`.gp`, `.gp7`, `.gp8`) files. Load two versions of a song and see exactly what changed — notes, tempo, time signatures — highlighted directly on the sheet music and tablature.
+
+## Download
+
+**[Windows (portable .exe)](https://github.com/rohschinken/riff-diff/releases/download/v1.0.0/riff-diff.exe)** — standalone, no installation needed. Requires Windows 10 1803+ or Windows 11 (WebView2).
+
+See [all releases](https://github.com/rohschinken/riff-diff/releases) for installers (MSI, NSIS).
 
 ## How It Works
 

@@ -281,6 +281,7 @@ function App() {
           <h1 className="text-lg font-bold tracking-tight text-chrome-text">
             <span className="text-chrome-accent">Riff</span><span className="text-chrome-text-muted">-</span>Diff
           </h1>
+          <span className="text-[10px] text-chrome-text-muted/50 font-medium -ml-2">v{__APP_VERSION__}</span>
           <DiffFilterBar
             filters={filters}
             onFiltersChange={setFilters}
@@ -352,6 +353,18 @@ function App() {
             </svg>
           )}
         </button>
+          <a
+            href="https://github.com/rohschinken/riff-diff"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-2 rounded-lg text-chrome-text-muted hover:bg-chrome-bg-subtle hover:text-chrome-text transition-colors"
+            aria-label="About Riff-Diff on GitHub"
+            title="About Riff-Diff on GitHub"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+            </svg>
+          </a>
         </div>
       </header>
       <TrackToolbar
