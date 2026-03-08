@@ -130,18 +130,19 @@ type Beat = model.Beat
 type Note = model.Note
 
 export type BeatStatus = 'equal' | 'added' | 'removed' | 'changed'
-export interface DiffFilters { showAdded: boolean; showRemoved: boolean; showChanged: boolean; showTempoTimeSig: boolean }
+export interface DiffFilters { showAddedRemoved: boolean; showChanged: boolean; showTempoTimeSig: boolean }
 export interface NoteDiff { note: Note; status: 'noteAdded' | 'noteRemoved' | 'noteEqual' }
 export interface BeatDiff { beatA: Beat | null; beatB: Beat | null; status: BeatStatus; noteDiffs?: NoteDiff[] }
 export interface MeasureDiff {
-  measureIndex: number
+  measureIndexA: number | null  // null = added bar (only in B)
+  measureIndexB: number | null  // null = removed bar (only in A)
   beatDiffs: BeatDiff[]
   tempoDiff: { tempoA: number; tempoB: number } | null
   timeSigDiff: { sigA: string; sigB: string } | null
 }
 export interface DiffResult {
   measures: MeasureDiff[]
-  summary: { equal: number; added: number; removed: number; changed: number; tempoChanges: number; timeSigChanges: number; totalMeasures: number }
+  summary: { equal: number; added: number; removed: number; changed: number; addedBars: number; removedBars: number; tempoChanges: number; timeSigChanges: number; totalMeasures: number }
 }
 ```
 
@@ -190,8 +191,10 @@ riff-diff/
 │   ├── diff/
 │   │   ├── types.ts                 DiffResult, BeatDiff, NoteDiff, MeasureDiff, DiffFilters
 │   │   ├── colors.ts               Shared DIFF_COLORS palette (solid, rgb, overlay, ghost)
-│   │   ├── diffEngine.ts           diffScores() — LCS-based beat alignment, note diffs
-│   │   └── diffEngine.test.ts      15 tests
+│   │   ├── diffEngine.ts           diffScores() — similarity-based bar alignment + LCS beat alignment
+│   │   ├── diffEngine.test.ts      15 tests
+│   │   ├── phantomBars.ts          Phantom bar computation and insertion for visual alignment
+│   │   └── phantomBars.test.ts     11 tests
 │   ├── hooks/
 │   │   ├── useFileLoader.ts         File picker (web + Tauri), extension validation
 │   │   ├── useFileLoader.test.ts    14 tests
@@ -239,6 +242,7 @@ riff-diff/
 | 9 UI Polish | **COMPLETE** | +5 (useTheme) |
 | 10 Tauri Desktop | **COMPLETE** | +3 (useFileLoader Tauri edge cases) |
 | 11 UX Enhancements | **COMPLETE** | +34 (useDropZone 9, useZoom 9, LoadingOverlay 4, AlphaTabPane 3, notation toggle 5, zoom hook 4) |
+| 12 Diff Engine Improvements | **COMPLETE** | No new tests (existing 26 diff tests pass) |
 
 **Total: 147 tests passing**, `npm run build` clean, `npm run tauri:build` produces installers.
 
@@ -313,7 +317,7 @@ Each phase: **QA Engineer writes tests first → Lead Engineer implements → te
 
 **Key decisions:**
 - Pure function, zero side effects, no React/DOM dependency
-- Measures aligned by index (not fuzzy matching) — matches how musicians think about bar numbers
+- Originally aligned measures by index; replaced with bar-level similarity alignment in Phase 12
 - LCS prevents cascading mismatches when beats inserted/removed mid-measure
 - `diffScores()` NOT yet wired into the UI — that's Phase 5
 
@@ -544,6 +548,60 @@ Diff colors (`diff-added`, `diff-removed`, `diff-changed`, `diff-meta`, `diff-eq
 
 ---
 
+### Phase 12 — Diff Engine Improvements ✅ COMPLETE
+
+**Scope:** Post-release bug fixes and algorithmic improvements to the diff engine, phantom bar system, and rendering stability.
+
+**What was built / fixed:**
+
+1. **Similarity-based bar alignment (Needleman-Wunsch)**
+   - Replaced binary-match LCS with a similarity-scoring alignment algorithm for bar-level alignment
+   - `barSimilarity()` computes 0.0–1.0 score between bars using beat-level LCS (identical=1.0, similar≈0.8, different=0.0)
+   - `barAlignmentTable()` builds a DP table where each cell accumulates best cumulative similarity
+   - Backtracking prefers pairing (diagonal) when its score is at least as good as skipping
+   - **Why:** Pure LCS with exact-match signatures could prefer shifted alignments (matching bars at wrong positions) when content happened to repeat. "Almost identical" bars scored the same as completely different bars (both 0), letting the algorithm skip them in favor of shifted exact matches elsewhere.
+
+2. **Phantom bar insertion for visual alignment**
+   - `src/diff/phantomBars.ts` — inserts empty bars into scores so added/removed measures align visually between panes
+   - `extractBarPairs()`, `computePhantomPositions()`, `insertPhantomBars()`, `removePhantomBars()`
+   - Phantom bars maintain correct `previousBar`/`nextBar` chain, `masterBar` indices, and voice counts
+   - Voice count matching: phantom bars must have the same number of voices as adjacent bars (alphaTab's `_chain()` traverses `bar.nextBar.voices[index]`)
+
+3. **Stale render error suppression**
+   - alphaTab's web worker renders asynchronously; phantom bar insertion between `renderStarted` and `postRenderFinished` causes `bounds.beat is undefined` in `BoundsLookup.fromJson`
+   - Root cause: uniform bar width handler in `postRenderFinished` triggers internal `api.render()` of pre-phantom score; phantoms are inserted, then stale render completes against modified score
+   - Fix: deferred phantom insertion until both panes are idle (`!isRenderingA && !isRenderingB`), plus global `window.addEventListener('error')` to suppress remaining stale-render errors from alphaTab
+   - `isRendering` flag set in `handleScoreLoaded` (not just `renderStarted`) to close the gap
+
+4. **Filter pill bar count fix**
+   - Added `addedBars` and `removedBars` to `DiffResult.summary` (distinct from beat-level `added`/`removed`)
+   - "Added/Removed Bars" filter pill now shows bar count instead of beat count
+   - `MeasureDiff` gained `measureIndexA`/`measureIndexB` (nullable) instead of single `measureIndex`
+
+**Files created:**
+| File | Purpose |
+|------|---------|
+| `src/diff/phantomBars.ts` | Phantom bar computation and insertion |
+| `src/diff/phantomBars.test.ts` | 11 tests for phantom bar logic |
+
+**Files modified:**
+| File | Change |
+|------|--------|
+| `src/diff/diffEngine.ts` | Similarity-based bar alignment (Needleman-Wunsch), `addedBars`/`removedBars` summary, `measureIndexA`/`measureIndexB` |
+| `src/diff/types.ts` | Updated `MeasureDiff`, `DiffResult.summary`, `DiffFilters` (3 filters instead of 4) |
+| `src/App.tsx` | Phantom bar lifecycle (pending/insert/remove), deferred insertion, stale render guard |
+| `src/renderer/AlphaTabPane.tsx` | Global error handler for stale render suppression |
+| `src/components/DiffFilterBar.tsx` | Uses `addedBars`/`removedBars` for pill count |
+| `src/renderer/DiffOverlay.tsx` | Updated for nullable `measureIndexA`/`measureIndexB` |
+
+**Key decisions:**
+- **Needleman-Wunsch over LCS for bars** — LCS is binary (match/no-match); Needleman-Wunsch uses continuous similarity scores. This prevents the algorithm from preferring shifted alignments when bars repeat with minor variations.
+- **Deferred phantom insertion** — phantoms computed in diff effect, stored in `pendingPhantomsRef`, applied only when both panes finish rendering. Prevents race condition with alphaTab's async worker.
+- **Global error handler over monkeypatching** — alphaTab registers worker message handlers via `.bind(this)` in the constructor, making method-level patches impossible. Global `window.addEventListener('error')` with `e.preventDefault()` is the pragmatic fix for the remaining stale-render errors.
+- **Voice count matching for phantom bars** — alphaTab's internal `_chain()` traverses voices across bars by index. Phantom bars with fewer voices than real bars cause `nextVoice is undefined` crashes.
+
+---
+
 ## Agent Sign-off Matrix
 
 | Phase | Lead Eng | QA | UX | Musician | PO |
@@ -559,6 +617,7 @@ Diff colors (`diff-added`, `diff-removed`, `diff-changed`, `diff-meta`, `diff-eq
 | 9 Polish | ✅ done | ✅ done | ✅ done | ✅ done | ✅ done |
 | 10 Tauri | ✅ done | ✅ done | — | — | ✅ done |
 | 11 UX Enhancements | ✅ done | ✅ done | ✅ done | ✅ done | ✅ done |
+| 12 Diff Improvements | ✅ done | ✅ done | — | ✅ done | — |
 
 ---
 
@@ -579,7 +638,7 @@ Diff colors (`diff-added`, `diff-removed`, `diff-changed`, `diff-meta`, `diff-eq
 
 3. **`staff.isPercussion` detection** — alphaTab marks percussion staves during `Staff.finish()`, which also clears `stringTuning.tunings` and forces `showTablature = false`. The `TabBarRendererFactory.canCreate()` checks `!this.hideOnPercussionTrack || !staff.isPercussion` AND `staff.tuning.length > 0`.
 
-4. **Test file location** — 8 GP test files in `testfiles/` directory (Fever v0.1.3 through v0.3.10), gitignored. Useful for manual testing of diff visualization.
+4. **Test file location** — 8 GP test files in `testfiles/` directory, gitignored. Useful for manual testing of diff visualization.
 
 5. **Large bundle warning** — alphaTab is ~1.4MB minified. The Vite build warns about chunk size. Consider code-splitting in Phase 9 if needed.
 
@@ -616,3 +675,13 @@ Diff colors (`diff-added`, `diff-removed`, `diff-changed`, `diff-meta`, `diff-eq
 21. **Vitest `vi.mock` class property declarations cause hoisting crash** — Adding typed class property declarations (e.g. `updateSettings: ReturnType<typeof vi.fn>`) inside a `vi.mock` factory class can cause `Cannot access '__vi_import_2__' before initialization`. Workaround: omit class property declarations and use `(this as any).prop = value` in the constructor.
 
 22. **Zoom scale effect must update guard ref** — When using a ref to skip the scale update effect on initial mount (`initialScaleRef`), the ref must be updated to the new scale value at the end of the effect. Otherwise, resetting zoom back to the initial value (e.g. 1.0) will match the stale ref and skip the update.
+
+23. **Phantom bar voice count must match neighbors** — alphaTab's internal `_chain()` method traverses `this.bar.nextBar.voices[this.index]` during rendering. Phantom bars with only 1 voice adjacent to real bars with multiple voices cause `nextVoice is undefined` crash. Always match the adjacent bar's voice count when creating phantom bars.
+
+24. **Phantom bar insertion race condition with alphaTab worker** — alphaTab serializes the score to JSON and sends it to a web worker for rendering. `BoundsLookup.fromJson` on the main thread maps worker results back to the current score by index. If phantom bars are inserted between `renderStarted` and `postRenderFinished`, indices are stale → `bounds.beat is undefined`. Fix: defer phantom insertion until both panes are idle, and suppress residual stale-render errors via global error handler.
+
+25. **`.bind(this)` prevents alphaTab monkeypatching** — alphaTab registers `this._worker.addEventListener('message', this._handleWorkerMessage.bind(this))` in the constructor. The bound copy is what's registered, so replacing the method on the prototype or instance has no effect. Only `window.addEventListener('error')` with `e.preventDefault()` works to suppress stale-render errors.
+
+26. **Binary LCS produces wrong bar alignment with repeated content** — Pure LCS on bar signatures uses binary match (equal/not-equal). When bars have similar but not identical content (e.g. same riff with minor note changes), the algorithm may prefer a shifted alignment that has more exact matches at wrong positions. Fix: use similarity-based scoring (Needleman-Wunsch) where "almost identical" bars contribute ~0.8 instead of 0, making positional alignment win over shifted exact matches.
+
+27. **`uniformBarWidth` triggers render cascade** — When `uniformBarWidth` is set in `AlphaTabPane.postRenderFinished`, alphaTab may trigger an internal `api.render()` if bar widths don't match. This creates an intermediate render whose completion can race with phantom bar insertion. The deferred phantom insertion pattern (`pendingPhantomsRef` + idle check) handles this.

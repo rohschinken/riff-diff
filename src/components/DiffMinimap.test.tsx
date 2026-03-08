@@ -18,7 +18,8 @@ function makeMeasure(
   opts?: { tempoDiff?: MeasureDiff['tempoDiff']; timeSigDiff?: MeasureDiff['timeSigDiff'] },
 ): MeasureDiff {
   return {
-    measureIndex: index,
+    measureIndexA: index,
+    measureIndexB: index,
     beatDiffs: statuses.map((s) => makeBeatDiff(s)),
     tempoDiff: opts?.tempoDiff ?? null,
     timeSigDiff: opts?.timeSigDiff ?? null,
@@ -33,6 +34,8 @@ function makeDiffResult(measures: MeasureDiff[]): DiffResult {
       added: 0,
       removed: 0,
       changed: 0,
+      addedBars: 0,
+      removedBars: 0,
       tempoChanges: 0,
       timeSigChanges: 0,
       totalMeasures: measures.length,
@@ -115,7 +118,7 @@ describe('computeMeasureStatus', () => {
 
   it('falls back to next worst when removed is filtered out', () => {
     const measure = makeMeasure(0, ['equal', 'removed', 'changed'])
-    const f: DiffFilters = { ...filters, showRemoved: false }
+    const f: DiffFilters = { ...filters, showAddedRemoved: false }
     expect(computeMeasureStatus(measure, f)).toBe('changed')
   })
 

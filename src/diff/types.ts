@@ -18,7 +18,8 @@ export interface BeatDiff {
 }
 
 export interface MeasureDiff {
-  measureIndex: number
+  measureIndexA: number | null
+  measureIndexB: number | null
   beatDiffs: BeatDiff[]
   tempoDiff: { tempoA: number; tempoB: number } | null
   timeSigDiff: { sigA: string; sigB: string } | null
@@ -31,6 +32,8 @@ export interface DiffResult {
     added: number
     removed: number
     changed: number
+    addedBars: number
+    removedBars: number
     tempoChanges: number
     timeSigChanges: number
     totalMeasures: number
@@ -38,15 +41,13 @@ export interface DiffResult {
 }
 
 export interface DiffFilters {
-  showAdded: boolean
-  showRemoved: boolean
+  showAddedRemoved: boolean
   showChanged: boolean
   showTempoTimeSig: boolean
 }
 
 export const DEFAULT_DIFF_FILTERS: DiffFilters = {
-  showAdded: true,
-  showRemoved: true,
+  showAddedRemoved: true,
   showChanged: true,
   showTempoTimeSig: true,
 }

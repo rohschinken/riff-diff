@@ -33,7 +33,7 @@ See [all releases](https://github.com/rohschinken/riff-diff/releases) for instal
 8. **Notation toggle** — show or hide the standard notation stave via the header button; tablature is always visible. Percussion tracks keep notation on (alphaTab can't render tab for percussion). Preference is persisted
 9. **Zoom** — zoom in/out via header buttons or Ctrl/Cmd +/-/0; both panes zoom together; preference is persisted
 
-The diff engine uses LCS (Longest Common Subsequence) alignment on beat signatures within each measure, so inserted or removed beats don't cause cascading mismatches.
+The diff engine uses similarity-based alignment at two levels: bars are aligned across measures using a Needleman-Wunsch algorithm that scores content similarity (not just exact match), and beats within each matched bar pair are aligned via LCS (Longest Common Subsequence). Phantom (empty) bars are inserted to visually align added/removed measures between panes.
 
 ## Stack
 
@@ -112,20 +112,6 @@ Output:
 - `src-tauri/target/release/bundle/appimage/riff-diff_0.1.0_amd64.AppImage`
 
 > **Note:** Desktop builds are platform-specific — you can only build for the OS you're currently running on.
-
-## Project Status
-
-- **Phase 1** — Scaffold & Tooling (complete)
-- **Phase 2** — alphaTab Rendering, single pane (complete)
-- **Phase 3** — Dual Pane & Track Switcher (complete)
-- **Phase 4** — Diff Engine (complete)
-- **Phase 5** — Diff Overlay (complete)
-- **Phase 6** — Synchronized Scrolling (complete)
-- **Phase 7** — Diff Minimap (complete)
-- **Phase 8** — Diff Filter Toggles (complete)
-- **Phase 9** — UI Polish (complete)
-- **Phase 10** — Tauri Desktop Packaging (complete)
-- **Phase 11** — UX Enhancements: drag-and-drop, loading spinner, zoom (complete)
 
 ## License
 

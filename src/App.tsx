@@ -8,6 +8,7 @@ import { TrackToolbar, TrackInfo } from './components/TrackToolbar'
 import { AlphaTabPane } from './renderer/AlphaTabPane'
 import type { AlphaTabPaneHandle } from './renderer/AlphaTabPane'
 import { DiffOverlay } from './renderer/DiffOverlay'
+import type { ComparisonMode } from './renderer/DiffOverlay'
 import { DiffMinimap } from './components/DiffMinimap'
 import { DiffFilterBar } from './components/DiffFilterBar'
 import { useFileLoader } from './hooks/useFileLoader'
@@ -19,8 +20,10 @@ import { useZoom } from './hooks/useZoom'
 import { LoadingOverlay } from './components/LoadingOverlay'
 import { forceStaveVisibility } from './forceStaveVisibility'
 import { diffScores } from './diff/diffEngine'
+import { extractBarPairs, computePhantomPositions, insertPhantomBars, removePhantomBars } from './diff/phantomBars'
 import { DEFAULT_DIFF_FILTERS } from './diff/types'
 import type { DiffResult, DiffFilters } from './diff/types'
+
 
 function EmptyPane({ side, onOpenFile, isLoading }: { side: 'A' | 'B'; onOpenFile: () => void; isLoading: boolean }) {
   return (
@@ -120,11 +123,33 @@ function App() {
   const [trackMapB, setTrackMapB] = useState(0)
 
   const [diffResult, setDiffResult] = useState<DiffResult | null>(null)
+  const prevPhantomsARef = useRef<number[]>([])
+  const prevPhantomsBRef = useRef<number[]>([])
   const [renderKeyA, setRenderKeyA] = useState(0)
   const [renderKeyB, setRenderKeyB] = useState(0)
   const [isRenderingA, setIsRenderingA] = useState(false)
   const [isRenderingB, setIsRenderingB] = useState(false)
-  const [filters, setFilters] = useState<DiffFilters>(DEFAULT_DIFF_FILTERS)
+  const [filters, setFilters] = useState<DiffFilters>(() => {
+    try {
+      const stored = localStorage.getItem('riff-diff-filters')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        // Validate shape matches DiffFilters
+        if (
+          typeof parsed.showAddedRemoved === 'boolean' &&
+          typeof parsed.showChanged === 'boolean' &&
+          typeof parsed.showTempoTimeSig === 'boolean'
+        ) {
+          return parsed as DiffFilters
+        }
+      }
+    } catch { /* ignore */ }
+    return DEFAULT_DIFF_FILTERS
+  })
+  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('aToB')
+  const [barWidthOffset, setBarWidthOffset] = useState(0)
+  const barWidthOffsetRef = useRef(barWidthOffset)
+  barWidthOffsetRef.current = barWidthOffset
 
   const [scrollElA, setScrollElA] = useState<HTMLElement | null>(null)
   const [scrollElB, setScrollElB] = useState<HTMLElement | null>(null)
@@ -133,6 +158,11 @@ function App() {
   const [scrollbarEl, setScrollbarEl] = useState<HTMLDivElement | null>(null)
   const scrollFractionRef = useRef<number | null>(null)
   const prevZoomRef = useRef(zoomLevel)
+
+  // Persist filter state to localStorage
+  useEffect(() => {
+    localStorage.setItem('riff-diff-filters', JSON.stringify(filters))
+  }, [filters])
 
   // Capture scroll fraction synchronously when zoom changes (before effects fire)
   if (zoomLevel !== prevZoomRef.current) {
@@ -143,8 +173,8 @@ function App() {
     }
   }
 
-  const handleRenderStartedA = useCallback(() => setIsRenderingA(true), [])
-  const handleRenderStartedB = useCallback(() => setIsRenderingB(true), [])
+  const handleRenderStartedA = useCallback(() => { setIsRenderingA(true) }, [])
+  const handleRenderStartedB = useCallback(() => { setIsRenderingB(true) }, [])
 
   const [barWidthsA, setBarWidthsA] = useState<number[]>([])
   const [barWidthsB, setBarWidthsB] = useState<number[]>([])
@@ -156,7 +186,11 @@ function App() {
     const el = paneARef.current?.getScrollContainer() ?? null
     setScrollElA(el)
     setScrollWidthA(contentWidth)
-    setBarWidthsA(barWidths)
+    // Only update base bar widths when no manual offset is active;
+    // otherwise the adjusted widths feed back into autoBarWidth causing a loop.
+    if (barWidthOffsetRef.current === 0) {
+      setBarWidthsA(barWidths)
+    }
   }, [])
 
   const handleRenderFinishedB = useCallback((api: AlphaTabApi, contentWidth: number, barWidths: number[]) => {
@@ -166,12 +200,18 @@ function App() {
     const el = paneBRef.current?.getScrollContainer() ?? null
     setScrollElB(el)
     setScrollWidthB(contentWidth)
-    setBarWidthsB(barWidths)
+    if (barWidthOffsetRef.current === 0) {
+      setBarWidthsB(barWidths)
+    }
   }, [])
 
   const handleScoreLoadedA = useCallback((score: Score) => {
     forceStaveVisibility(score, showNotationRef.current)
     scoreARef.current = score
+    // Mark as rendering immediately — the actual renderStarted event arrives
+    // asynchronously (separate worker message), so without this guard the
+    // phantom insertion effect could run before isRenderingA becomes true.
+    setIsRenderingA(true)
     setTracksA(extractTracks(score))
     setSelectedTrackIndex(0)
     setTrackMapA(0)
@@ -181,6 +221,7 @@ function App() {
   const handleScoreLoadedB = useCallback((score: Score) => {
     forceStaveVisibility(score, showNotationRef.current)
     scoreBRef.current = score
+    setIsRenderingB(true)
     setTracksB(extractTracks(score))
     setTrackMapB(0)
     setDiffResult(null)
@@ -203,9 +244,12 @@ function App() {
     }
   }, [fileB.fileData])
 
-  // Compute uniform bar width: max across all bars in both panels
-  const uniformBarWidth = barWidthsA.length > 0 && barWidthsB.length > 0
+  // Compute uniform bar width: max across all bars in both panels + manual offset
+  const autoBarWidth = barWidthsA.length > 0 && barWidthsB.length > 0
     ? Math.max(...barWidthsA, ...barWidthsB)
+    : null
+  const uniformBarWidth = autoBarWidth !== null
+    ? Math.max(20, autoBarWidth + barWidthOffset)
     : null
 
   useSyncScroll(scrollElA, scrollElB, scrollbarEl)
@@ -251,14 +295,77 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showNotation])
 
+  // Pending phantom positions: computed in diff effect, applied when panes are idle
+  const pendingPhantomsRef = useRef<{ posA: number[]; posB: number[]; result: DiffResult } | null>(null)
+
   // Compute diff when both scores are loaded or track selection changes
   useEffect(() => {
-    if (!scoreARef.current || !scoreBRef.current) {
+    const scoreA = scoreARef.current
+    const scoreB = scoreBRef.current
+    if (!scoreA || !scoreB) {
       setDiffResult(null)
+      pendingPhantomsRef.current = null
+      prevPhantomsARef.current = []
+      prevPhantomsBRef.current = []
       return
     }
-    setDiffResult(diffScores(scoreARef.current, scoreBRef.current, trackMapA, trackMapB))
+
+    // Strip any previously inserted phantom bars before re-diffing
+    if (prevPhantomsARef.current.length > 0) {
+      removePhantomBars(scoreA, prevPhantomsARef.current)
+      prevPhantomsARef.current = []
+    }
+    if (prevPhantomsBRef.current.length > 0) {
+      removePhantomBars(scoreB, prevPhantomsBRef.current)
+      prevPhantomsBRef.current = []
+    }
+
+    // Compute diff on original (phantom-free) scores
+    const result = diffScores(scoreA, scoreB, trackMapA, trackMapB)
+    setDiffResult(result)
+
+    // Compute phantom positions but don't insert yet — wait for panes to be idle
+    const barPairs = extractBarPairs(result.measures)
+    const { phantomsA: posA, phantomsB: posB } = computePhantomPositions(barPairs)
+
+    if (posA.length > 0 || posB.length > 0) {
+      pendingPhantomsRef.current = { posA, posB, result }
+    } else {
+      pendingPhantomsRef.current = null
+    }
   }, [trackMapA, trackMapB, tracksA, tracksB])
+
+  // Insert phantom bars only when both panes are idle (not mid-render).
+  // This avoids mutating the score while alphaTab's worker is still
+  // deserializing bounds from a previous render.
+  useEffect(() => {
+    if (isRenderingA || isRenderingB) return
+    const pending = pendingPhantomsRef.current
+    if (!pending) return
+    pendingPhantomsRef.current = null
+
+    const scoreA = scoreARef.current
+    const scoreB = scoreBRef.current
+    if (!scoreA || !scoreB) return
+
+    const { posA, posB } = pending
+
+    insertPhantomBars(scoreA, posA)
+    insertPhantomBars(scoreB, posB)
+
+    prevPhantomsARef.current = posA
+    prevPhantomsBRef.current = posB
+
+    // Force both panes to re-render with inserted phantom bars
+    if (posA.length > 0 && apiARef.current) {
+      const track = apiARef.current.score?.tracks[trackMapA]
+      if (track) apiARef.current.renderTracks([track])
+    }
+    if (posB.length > 0 && apiBRef.current) {
+      const track = apiBRef.current.score?.tracks[trackMapB]
+      if (track) apiBRef.current.renderTracks([track])
+    }
+  }, [isRenderingA, isRenderingB, trackMapA, trackMapB])
 
   const handleTrackChange = useCallback((index: number) => {
     setSelectedTrackIndex(index)
@@ -299,8 +406,64 @@ function App() {
             onFiltersChange={setFilters}
             summary={diffResult?.summary ?? null}
           />
+          <div className="h-5 w-px bg-chrome-border mx-2" />
+          <div className="flex items-center gap-1">
+            <span
+              className="text-xs font-semibold text-chrome-text-muted tabular-nums"
+              data-testid="comparison-direction-label"
+            >
+              {comparisonMode === 'aToB' ? 'A \u2192 B' : 'B \u2192 A'}
+            </span>
+            <button
+              data-testid="comparison-swap"
+              onClick={() => setComparisonMode((m) => m === 'aToB' ? 'bToA' : 'aToB')}
+              title={comparisonMode === 'aToB' ? 'A is original — click to swap' : 'B is original — click to swap'}
+              className="p-1 rounded text-chrome-text-muted hover:bg-chrome-bg-subtle hover:text-chrome-text transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+              </svg>
+            </button>
+          </div>
         </div>
         <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 mr-2" data-testid="bar-width-controls">
+            <span className="text-[10px] text-chrome-text-muted mr-0.5">Bar</span>
+            <button
+              onClick={() => setBarWidthOffset((o) => o - 10)}
+              disabled={autoBarWidth === null || autoBarWidth + barWidthOffset - 10 < 20}
+              className="p-1.5 rounded text-chrome-text-muted hover:bg-chrome-bg-subtle hover:text-chrome-text transition-colors disabled:opacity-30 disabled:cursor-default"
+              aria-label="Decrease bar width"
+              title="Decrease bar width"
+              data-testid="bar-width-decrease"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setBarWidthOffset(0)}
+              disabled={barWidthOffset === 0}
+              className="text-[10px] font-medium text-chrome-text-muted hover:text-chrome-text tabular-nums min-w-[2.5rem] text-center disabled:opacity-50"
+              title="Reset bar width to auto"
+              data-testid="bar-width-reset"
+            >
+              {barWidthOffset === 0 ? 'Auto' : `${barWidthOffset > 0 ? '+' : ''}${barWidthOffset}`}
+            </button>
+            <button
+              onClick={() => setBarWidthOffset((o) => o + 10)}
+              disabled={autoBarWidth === null}
+              className="p-1.5 rounded text-chrome-text-muted hover:bg-chrome-bg-subtle hover:text-chrome-text transition-colors disabled:opacity-30 disabled:cursor-default"
+              aria-label="Increase bar width"
+              title="Increase bar width"
+              data-testid="bar-width-increase"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m-7-7h14" />
+              </svg>
+            </button>
+          </div>
+          <div className="h-5 w-px bg-chrome-border" />
           <div className="flex items-center gap-0.5 mr-2">
             <button
               onClick={zoomOut}
@@ -412,11 +575,12 @@ function App() {
                     onScoreLoaded={handleScoreLoadedA}
                   >
                     <DiffOverlay
-                      diffResult={diffResult}
+                      diffResult={comparisonMode === 'aToB' ? null : diffResult}
                       side="A"
                       api={apiARef.current}
                       renderKey={renderKeyA}
                       filters={filters}
+                      comparisonMode={comparisonMode}
                     />
                   </AlphaTabPane>
                 ) : (
@@ -452,11 +616,12 @@ function App() {
                     onScoreLoaded={handleScoreLoadedB}
                   >
                     <DiffOverlay
-                      diffResult={diffResult}
+                      diffResult={comparisonMode === 'bToA' ? null : diffResult}
                       side="B"
                       api={apiBRef.current}
                       renderKey={renderKeyB}
                       filters={filters}
+                      comparisonMode={comparisonMode}
                     />
                   </AlphaTabPane>
                 ) : (

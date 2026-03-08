@@ -27,12 +27,17 @@ export function computeMeasureStatus(
   measure: MeasureDiff,
   filters: DiffFilters,
 ): BeatStatus {
+  // Bar-level add/remove
+  if (measure.measureIndexA === null && filters.showAddedRemoved) return 'added'
+  if (measure.measureIndexB === null && filters.showAddedRemoved) return 'removed'
+  if (measure.measureIndexA === null || measure.measureIndexB === null) return 'equal'
+
   let worst: BeatStatus = 'equal'
 
   for (const bd of measure.beatDiffs) {
     if (bd.status === 'equal') continue
-    if (bd.status === 'added' && !filters.showAdded) continue
-    if (bd.status === 'removed' && !filters.showRemoved) continue
+    if (bd.status === 'added' && !filters.showAddedRemoved) continue
+    if (bd.status === 'removed' && !filters.showAddedRemoved) continue
     if (bd.status === 'changed' && !filters.showChanged) continue
 
     if (STATUS_PRIORITY[bd.status] > STATUS_PRIORITY[worst]) {

@@ -2,8 +2,8 @@
 
 ## High priority
 
-- **Manual bar width adjustment**: Add +/- buttons to increase/decrease the auto-calculated uniform bar width in 10px increments. Default remains the auto-calculated max bar width.
-- **Persist filter state**: Save diff filter toggle states to localStorage so they survive page reloads (like zoom/theme/notation already do).
+- **Minimap color for badges**: Tempo/Time singature differences should be shown in purple instead of yellow in the minimap.
+- **Minimap colors must respect A/B mode**: sometimes minimap shows red instead of green (because it does not recognize the selected mode)
 
 ## Medium priority
 
@@ -13,3 +13,4 @@
 ## Low priority
 
 - **Drum tab notation**: alphaTab hides the tab renderer on percussion tracks (`hideOnPercussionTrack = true`) and clears tuning data in `Staff.finish()`. Showing drum tabs alongside standard percussion notation would require either alphaTab upstream support or significant internal workarounds. Standard percussion notation is sufficient for diffing.
+

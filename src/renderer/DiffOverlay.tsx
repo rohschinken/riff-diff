@@ -4,6 +4,7 @@ import type { DiffResult, DiffFilters, MeasureDiff } from '../diff/types'
 import { DIFF_COLORS } from '../diff/colors'
 
 export type OverlaySide = 'A' | 'B'
+export type ComparisonMode = 'aToB' | 'bToA'
 
 export interface DiffOverlayProps {
   diffResult: DiffResult | null
@@ -11,6 +12,7 @@ export interface DiffOverlayProps {
   api: AlphaTabApi | null
   renderKey: number
   filters: DiffFilters
+  comparisonMode?: ComparisonMode
 }
 
 const COLORS = {
@@ -19,12 +21,12 @@ const COLORS = {
   changed: DIFF_COLORS.changed.overlay,
   ghostAdded: DIFF_COLORS.added.ghost,
   ghostRemoved: DIFF_COLORS.removed.ghost,
-  tempoBadge: DIFF_COLORS.changed.solid,
+  tempoBadge: DIFF_COLORS.meta.solid,
 } as const
 
 interface OverlayRect {
   key: string
-  type: 'beat' | 'ghost'
+  type: 'beat' | 'ghost' | 'bar'
   x: number
   y: number
   w: number
@@ -69,17 +71,70 @@ export function computeOverlays(
   side: OverlaySide,
   boundsLookup: BoundsLike,
   filters: DiffFilters,
+  comparisonMode: ComparisonMode = 'aToB',
 ): { overlays: OverlayRect[]; badges: BadgeRect[] } {
   const overlays: OverlayRect[] = []
   const badges: BadgeRect[] = []
 
-  for (const measure of diffResult.measures) {
+  // In bToA mode (B is original), swap added/removed semantics:
+  // bar only in A = added (green), bar only in B = removed (red)
+  const reversed = comparisonMode === 'bToA'
+
+  for (let mi = 0; mi < diffResult.measures.length; mi++) {
+    const measure = diffResult.measures[mi]
+    // After phantom bar insertion, `mi` is the unified position.
+    // Both scores have bars at every unified position (real or phantom).
+    // Use `mi` for bounds lookup since it maps to the score's bar index.
+
+    // Detect bar-level add/remove (entire bar only exists in one version)
+    const onlyInB = measure.measureIndexA === null && measure.measureIndexB !== null
+    const onlyInA = measure.measureIndexA !== null && measure.measureIndexB === null
+    const thisSideHasReal = side === 'A' ? measure.measureIndexA !== null : measure.measureIndexB !== null
+
+    // Determine visual meaning based on comparison direction
+    const isBarAdded = reversed ? onlyInA : onlyInB
+
+    // Bar-level add/remove: render full-bar overlay on the side that has the real bar,
+    // ghost on the side that has a phantom bar
+    if ((onlyInA || onlyInB) && filters.showAddedRemoved) {
+      const mbBounds = boundsLookup.findMasterBarByIndex(mi)
+      if (mbBounds) {
+        if (thisSideHasReal) {
+          // This side HAS the real bar — full bar-level overlay
+          overlays.push({
+            key: `bar-${mi}`,
+            type: 'bar',
+            x: mbBounds.realBounds.x,
+            y: mbBounds.realBounds.y,
+            w: mbBounds.realBounds.w,
+            h: mbBounds.realBounds.h,
+            color: isBarAdded ? COLORS.added : COLORS.removed,
+          })
+        } else {
+          // This side has a phantom bar — ghost overlay
+          overlays.push({
+            key: `ghost-${mi}`,
+            type: 'ghost',
+            x: mbBounds.realBounds.x,
+            y: mbBounds.realBounds.y,
+            w: mbBounds.realBounds.w,
+            h: mbBounds.realBounds.h,
+            color: isBarAdded ? COLORS.ghostAdded : COLORS.ghostRemoved,
+          })
+        }
+      }
+      continue
+    }
+
+    // Skip phantom positions when filter is off
+    if (!thisSideHasReal) continue
+
     // Tempo/TimeSig badges
     if (filters.showTempoTimeSig && (measure.tempoDiff || measure.timeSigDiff)) {
-      const mbBounds = boundsLookup.findMasterBarByIndex(measure.measureIndex)
+      const mbBounds = boundsLookup.findMasterBarByIndex(mi)
       if (mbBounds) {
         badges.push({
-          key: `${measure.measureIndex}`,
+          key: `${mi}`,
           x: mbBounds.realBounds.x,
           y: mbBounds.realBounds.y,
           label: buildBadgeLabel(measure, side),
@@ -87,58 +142,36 @@ export function computeOverlays(
       }
     }
 
-    const ghostMeasures = new Set<number>()
-
+    // Beat-level overlays for matched bars
     for (let bi = 0; bi < measure.beatDiffs.length; bi++) {
       const bd = measure.beatDiffs[bi]
 
       if (bd.status === 'equal') continue
-      if (bd.status === 'added' && !filters.showAdded) continue
-      if (bd.status === 'removed' && !filters.showRemoved) continue
+      // Beat-level overlays are only for 'changed' — added/removed are handled at bar level
+      if (bd.status === 'added' || bd.status === 'removed') continue
       if (bd.status === 'changed' && !filters.showChanged) continue
 
       const beat = side === 'A' ? bd.beatA : bd.beatB
+      if (!beat) continue
 
-      if (beat) {
-        const allBeatBounds = boundsLookup.findBeats(beat) ?? []
-        // Deduplicate: findBeats returns one entry per voice/staff rendering,
-        // but multiple voices on the same staff share identical bounds.
-        const seen = new Set<string>()
-        let uniqueIdx = 0
-        for (const beatBounds of allBeatBounds) {
-          const { x, y, w, h } = beatBounds.realBounds
-          const posKey = `${x},${y},${w},${h}`
-          if (seen.has(posKey)) continue
-          seen.add(posKey)
-          overlays.push({
-            key: `beat-${measure.measureIndex}-${bi}-s${uniqueIdx}`,
-            type: 'beat',
-            x,
-            y,
-            w,
-            h,
-            color: COLORS[bd.status],
-          })
-          uniqueIdx++
-        }
-      } else {
-        // Ghost overlay: beat doesn't exist in this pane
-        if (!ghostMeasures.has(measure.measureIndex)) {
-          ghostMeasures.add(measure.measureIndex)
-          const mbBounds = boundsLookup.findMasterBarByIndex(measure.measureIndex)
-          if (mbBounds) {
-            const ghostColor = bd.status === 'added' ? COLORS.ghostAdded : COLORS.ghostRemoved
-            overlays.push({
-              key: `ghost-${measure.measureIndex}`,
-              type: 'ghost',
-              x: mbBounds.realBounds.x,
-              y: mbBounds.realBounds.y,
-              w: mbBounds.realBounds.w,
-              h: mbBounds.realBounds.h,
-              color: ghostColor,
-            })
-          }
-        }
+      const allBeatBounds = boundsLookup.findBeats(beat) ?? []
+      const seen = new Set<string>()
+      let uniqueIdx = 0
+      for (const beatBounds of allBeatBounds) {
+        const { x, y, w, h } = beatBounds.realBounds
+        const posKey = `${x},${y},${w},${h}`
+        if (seen.has(posKey)) continue
+        seen.add(posKey)
+        overlays.push({
+          key: `beat-${mi}-${bi}-s${uniqueIdx}`,
+          type: 'beat',
+          x,
+          y,
+          w,
+          h,
+          color: COLORS[bd.status],
+        })
+        uniqueIdx++
       }
     }
   }
@@ -146,15 +179,15 @@ export function computeOverlays(
   return { overlays, badges }
 }
 
-export function DiffOverlay({ diffResult, side, api, renderKey, filters }: DiffOverlayProps) {
+export function DiffOverlay({ diffResult, side, api, renderKey, filters, comparisonMode = 'aToB' }: DiffOverlayProps) {
   const { overlays, badges } = useMemo(() => {
     const boundsLookup = (api as unknown as { renderer?: { boundsLookup?: BoundsLike } })?.renderer?.boundsLookup
     if (!diffResult || !boundsLookup) {
       return { overlays: [], badges: [] }
     }
-    return computeOverlays(diffResult, side, boundsLookup, filters)
+    return computeOverlays(diffResult, side, boundsLookup, filters, comparisonMode)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [diffResult, side, api, renderKey, filters])
+  }, [diffResult, side, api, renderKey, filters, comparisonMode])
 
   if (overlays.length === 0 && badges.length === 0) return null
 
@@ -177,12 +210,12 @@ export function DiffOverlay({ diffResult, side, api, renderKey, filters }: DiffO
           data-testid={`overlay-${rect.key}`}
           style={{
             position: 'absolute',
-            left: rect.type === 'ghost' ? rect.x + 2 : rect.x - 9,
+            left: rect.type === 'bar' || rect.type === 'ghost' ? rect.x + 2 : rect.x,
             top: rect.y,
-            width: rect.type === 'ghost' ? rect.w - 4 : rect.w,
+            width: rect.type === 'bar' || rect.type === 'ghost' ? rect.w - 4 : rect.w,
             height: rect.h,
             backgroundColor: rect.color,
-            borderRadius: rect.type === 'ghost' ? 6 : 0,
+            borderRadius: rect.type === 'bar' || rect.type === 'ghost' ? 6 : 0,
           }}
         />
       ))}

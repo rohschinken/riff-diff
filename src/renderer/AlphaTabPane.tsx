@@ -57,6 +57,26 @@ export const AlphaTabPane = forwardRef<AlphaTabPaneHandle, AlphaTabPaneProps>(
       },
     })
 
+    // Suppress stale render errors from alphaTab's internal BoundsLookup.fromJson.
+    // When phantom bars are inserted between a render start and its completion,
+    // the bounds data references the old score structure, causing a crash in
+    // fromJson. This is benign — the next render produces correct bounds.
+    // The .bind(this) in alphaTab's constructor makes method-level patching
+    // impossible, so we use a global error handler scoped to this API instance.
+    const staleRenderHandler = (e: ErrorEvent) => {
+      // Match the fromJson crash across browser error message formats:
+      // Firefox: "can't access property "id", bounds.beat is undefined"
+      // Firefox: "can't access property "id" of undefined"
+      // Chrome:  "Cannot read properties of undefined (reading 'id')"
+      if (
+        e.filename?.includes('alphaTab') &&
+        (e.message?.includes("'id'") || e.message?.includes('"id"'))
+      ) {
+        e.preventDefault()
+      }
+    }
+    window.addEventListener('error', staleRenderHandler)
+
     // Clear portal BEFORE alphaTab modifies DOM on re-render (e.g. track switch).
     // renderStarted fires synchronously before the async worker render,
     // so flushSync ensures React unmounts portal children before any DOM changes.
@@ -141,6 +161,7 @@ export const AlphaTabPane = forwardRef<AlphaTabPaneHandle, AlphaTabPaneProps>(
       unsubRender()
       unsubScore()
       setSurfaceEl(null)
+      window.removeEventListener('error', staleRenderHandler)
       api.destroy()
     }
   }, [buffer])
