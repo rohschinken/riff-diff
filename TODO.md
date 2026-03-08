@@ -2,8 +2,7 @@
 
 ## High priority
 
-- **Minimap color for badges**: Tempo/Time singature differences should be shown in purple instead of yellow in the minimap.
-- **Minimap colors must respect A/B mode**: sometimes minimap shows red instead of green (because it does not recognize the selected mode)
+no high prio todos
 
 ## Medium priority
 

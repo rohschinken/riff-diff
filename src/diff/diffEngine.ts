@@ -168,9 +168,24 @@ function compareTimeSig(
   return null
 }
 
-function barBeatSignatures(track: Score['tracks'][0], measureIndex: number): string[] {
-  const beats = extractBeats(track, measureIndex)
-  return beats.map(beatSignature)
+/**
+ * Build a combined bar signature from ALL tracks + master bar properties.
+ * Bar structure is global in Guitar Pro — adding a bar adds it to every track.
+ * So bar-level alignment must be track-independent to avoid per-track drift.
+ */
+function globalBarSignature(score: Score, measureIndex: number): string[] {
+  const sigs: string[] = []
+  // Include time signature so bars with different time sigs are less similar
+  const mb = score.masterBars[measureIndex]
+  sigs.push(`TS:${mb.timeSignatureNumerator}/${mb.timeSignatureDenominator}`)
+  // Include beats from every track, prefixed by track index for uniqueness
+  for (const track of score.tracks) {
+    const beats = extractBeats(track, measureIndex)
+    for (const beat of beats) {
+      sigs.push(`T${track.index}:${beatSignature(beat)}`)
+    }
+  }
+  return sigs
 }
 
 /**
@@ -233,10 +248,12 @@ export function diffScores(
   const numBarsA = scoreA.masterBars.length
   const numBarsB = scoreB.masterBars.length
 
-  // Bar-level similarity alignment: align bars by content similarity, not just exact match
-  const beatSigsA = Array.from({ length: numBarsA }, (_, i) => barBeatSignatures(trackA, i))
-  const beatSigsB = Array.from({ length: numBarsB }, (_, i) => barBeatSignatures(trackB, i))
-  const dp = barAlignmentTable(beatSigsA, beatSigsB)
+  // Bar-level alignment uses ALL tracks combined so the structural alignment
+  // is consistent regardless of which track is selected. In Guitar Pro,
+  // adding/removing a bar affects every track, so alignment must be global.
+  const globalSigsA = Array.from({ length: numBarsA }, (_, i) => globalBarSignature(scoreA, i))
+  const globalSigsB = Array.from({ length: numBarsB }, (_, i) => globalBarSignature(scoreB, i))
+  const dp = barAlignmentTable(globalSigsA, globalSigsB)
 
   // Walk the alignment table to produce aligned bar pairs
   type BarPair = { indexA: number | null; indexB: number | null }
@@ -245,7 +262,7 @@ export function diffScores(
   let bi = numBarsB
 
   while (ai > 0 && bi > 0) {
-    const sim = barSimilarity(beatSigsA[ai - 1], beatSigsB[bi - 1])
+    const sim = barSimilarity(globalSigsA[ai - 1], globalSigsB[bi - 1])
     const diagScore = dp[ai - 1][bi - 1] + sim
     const upScore = dp[ai - 1][bi]
     const leftScore = dp[ai][bi - 1]
