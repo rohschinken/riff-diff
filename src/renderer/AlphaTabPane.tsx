@@ -65,12 +65,14 @@ export const AlphaTabPane = forwardRef<AlphaTabPaneHandle, AlphaTabPaneProps>(
     // impossible, so we use a global error handler scoped to this API instance.
     const staleRenderHandler = (e: ErrorEvent) => {
       // Match the fromJson crash across browser error message formats:
+      // Firefox: "can't access property "voices", ...bars[bd.barIndex] is undefined"
       // Firefox: "can't access property "id", bounds.beat is undefined"
-      // Firefox: "can't access property "id" of undefined"
       // Chrome:  "Cannot read properties of undefined (reading 'id')"
+      // Chrome:  "Cannot read properties of undefined (reading 'voices')"
       if (
         e.filename?.includes('alphaTab') &&
-        (e.message?.includes("'id'") || e.message?.includes('"id"'))
+        (e.message?.includes("'id'") || e.message?.includes('"id"') ||
+         e.message?.includes("'voices'") || e.message?.includes('"voices"'))
       ) {
         e.preventDefault()
       }
