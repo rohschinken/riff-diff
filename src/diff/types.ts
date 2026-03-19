@@ -15,6 +15,7 @@ export interface BeatDiff {
   beatB: Beat | null
   status: BeatStatus
   noteDiffs?: NoteDiff[]
+  hasEffectsDiff?: boolean
 }
 
 export interface MeasureDiff {

@@ -80,3 +80,14 @@ body {
 .theme-transition {
   transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease, box-shadow 200ms ease;
 }
+
+/* ============================================
+   Metadata overlay: diff highlight row
+   ============================================ */
+
+.diff-highlight td {
+  background-color: rgba(234, 179, 8, 0.1);
+}
+[data-theme="dark-chrome"] .diff-highlight td {
+  background-color: rgba(234, 179, 8, 0.12);
+}

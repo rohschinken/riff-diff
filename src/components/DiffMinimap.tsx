@@ -40,13 +40,14 @@ export function computeMeasureStatus(
   let worst: MeasureStatus = 'equal'
 
   for (const bd of measure.beatDiffs) {
-    if (bd.status === 'equal') continue
+    if (bd.status === 'equal' && !bd.hasEffectsDiff) continue
     if (bd.status === 'added' && !filters.showAddedRemoved) continue
     if (bd.status === 'removed' && !filters.showAddedRemoved) continue
-    if (bd.status === 'changed' && !filters.showChanged) continue
+    if ((bd.status === 'changed' || bd.hasEffectsDiff) && !filters.showChanged) continue
 
-    if (STATUS_PRIORITY[bd.status] > STATUS_PRIORITY[worst]) {
-      worst = bd.status
+    const effective: MeasureStatus = bd.hasEffectsDiff && bd.status === 'equal' ? 'changed' : bd.status
+    if (STATUS_PRIORITY[effective] > STATUS_PRIORITY[worst]) {
+      worst = effective
     }
   }
 
@@ -76,6 +77,7 @@ export function drawMinimap(
   if (totalMeasures === 0) return
 
   const stripeWidth = width / totalMeasures
+  const gap = 2
   const reversed = comparisonMode === 'bToA'
 
   for (let i = 0; i < totalMeasures; i++) {
@@ -86,7 +88,9 @@ export function drawMinimap(
       else if (status === 'removed') status = 'added'
     }
     ctx.fillStyle = MINIMAP_COLORS[status]
-    ctx.fillRect(i * stripeWidth, 0, Math.max(stripeWidth, 1), height)
+    const x = i * stripeWidth
+    const w = Math.max(stripeWidth - gap, 1)
+    ctx.fillRect(x, 0, w, height)
   }
 
   if (viewport) {

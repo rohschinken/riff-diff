@@ -8,8 +8,8 @@ import type { DiffResult } from '../diff/types'
 
 // --- Helpers ---
 
-function makeBeatDiff(status: BeatStatus) {
-  return { beatA: null, beatB: null, status, noteDiffs: [] }
+function makeBeatDiff(status: BeatStatus, hasEffectsDiff = false) {
+  return { beatA: null, beatB: null, status, noteDiffs: [], hasEffectsDiff }
 }
 
 function makeMeasure(
@@ -141,6 +141,32 @@ describe('computeMeasureStatus', () => {
       tempoDiff: { tempoA: 120, tempoB: 140 },
     })
     const f: DiffFilters = { ...filters, showTempoTimeSig: false }
+    expect(computeMeasureStatus(measure, f)).toBe('equal')
+  })
+
+  it('returns "changed" for effects-only diffs (equal status with hasEffectsDiff)', () => {
+    const measure: MeasureDiff = {
+      measureIndexA: 0,
+      measureIndexB: 0,
+      beatDiffs: [
+        makeBeatDiff('equal', false),
+        makeBeatDiff('equal', true), // effects-only diff
+      ],
+      tempoDiff: null,
+      timeSigDiff: null,
+    }
+    expect(computeMeasureStatus(measure, filters)).toBe('changed')
+  })
+
+  it('returns "equal" for effects-only diffs when showChanged is false', () => {
+    const measure: MeasureDiff = {
+      measureIndexA: 0,
+      measureIndexB: 0,
+      beatDiffs: [makeBeatDiff('equal', true)],
+      tempoDiff: null,
+      timeSigDiff: null,
+    }
+    const f: DiffFilters = { ...filters, showChanged: false }
     expect(computeMeasureStatus(measure, f)).toBe('equal')
   })
 })

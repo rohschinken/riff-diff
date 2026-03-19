@@ -18,6 +18,7 @@ import { useNotationToggle } from './hooks/useNotationToggle'
 import { useDropZone } from './hooks/useDropZone'
 import { useZoom } from './hooks/useZoom'
 import { LoadingOverlay } from './components/LoadingOverlay'
+import { MetadataOverlay } from './components/MetadataOverlay'
 import { forceStaveVisibility } from './forceStaveVisibility'
 import { diffScores } from './diff/diffEngine'
 import { extractBarPairs, computePhantomPositions, insertPhantomBars, removePhantomBars } from './diff/phantomBars'
@@ -147,6 +148,7 @@ function App() {
     return DEFAULT_DIFF_FILTERS
   })
   const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('aToB')
+  const [showMetadata, setShowMetadata] = useState(false)
   const [barWidthOffset, setBarWidthOffset] = useState(0)
   const barWidthOffsetRef = useRef(barWidthOffset)
   barWidthOffsetRef.current = barWidthOffset
@@ -452,8 +454,8 @@ function App() {
           <div className="flex items-center gap-0.5 mr-2" data-testid="bar-width-controls">
             <span className="text-[10px] text-chrome-text-muted mr-0.5">Bar</span>
             <button
-              onClick={() => setBarWidthOffset((o) => o - 10)}
-              disabled={autoBarWidth === null || autoBarWidth + barWidthOffset - 10 < 20}
+              onClick={() => setBarWidthOffset((o) => o - 25)}
+              disabled={autoBarWidth === null || autoBarWidth + barWidthOffset - 25 < 20}
               className="p-1.5 rounded text-chrome-text-muted hover:bg-chrome-bg-subtle hover:text-chrome-text transition-colors disabled:opacity-30 disabled:cursor-default"
               aria-label="Decrease bar width"
               title="Decrease bar width"
@@ -473,7 +475,7 @@ function App() {
               {barWidthOffset === 0 ? 'Auto' : `${barWidthOffset > 0 ? '+' : ''}${barWidthOffset}`}
             </button>
             <button
-              onClick={() => setBarWidthOffset((o) => o + 10)}
+              onClick={() => setBarWidthOffset((o) => o + 25)}
               disabled={autoBarWidth === null}
               className="p-1.5 rounded text-chrome-text-muted hover:bg-chrome-bg-subtle hover:text-chrome-text transition-colors disabled:opacity-30 disabled:cursor-default"
               aria-label="Increase bar width"
@@ -524,14 +526,26 @@ function App() {
             aria-label={showNotation ? 'Hide standard notation' : 'Show standard notation'}
             title={showNotation ? 'Hide standard notation' : 'Show standard notation'}
           >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M3 10h18M3 14h18M3 18h18" />
-              {showNotation && (
-                <circle cx="17" cy="10" r="2.5" fill="currentColor" stroke="none" />
-              )}
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              {/* Eighth note: oval notehead + stem + flag */}
+              <ellipse cx="9" cy="17" rx="3.5" ry="2.5" fill="currentColor" stroke="none" transform="rotate(-15 9 17)" />
+              <line x1="12.2" y1="15.2" x2="12.2" y2="4" strokeWidth={1.8} strokeLinecap="round" />
+              <path d="M12.2 4 C14 6, 16 8, 15 11" strokeWidth={1.5} strokeLinecap="round" fill="none" />
               {!showNotation && (
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 2l20 20" />
               )}
+            </svg>
+          </button>
+          <button
+            data-testid="metadata-toggle"
+            onClick={() => setShowMetadata((v) => !v)}
+            disabled={!scoreARef.current && !scoreBRef.current}
+            className={`p-2 rounded-lg transition-colors ${showMetadata ? 'text-chrome-accent hover:bg-chrome-bg-subtle' : 'text-chrome-text-muted hover:bg-chrome-bg-subtle hover:text-chrome-text'} disabled:opacity-30 disabled:cursor-default`}
+            aria-label="Toggle file metadata comparison"
+            title="File metadata comparison"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
             </svg>
           </button>
         <button
@@ -678,6 +692,13 @@ function App() {
           )}
         </div>
       </main>
+      {showMetadata && (
+        <MetadataOverlay
+          scoreA={scoreARef.current}
+          scoreB={scoreBRef.current}
+          onClose={() => setShowMetadata(false)}
+        />
+      )}
     </div>
   )
 }

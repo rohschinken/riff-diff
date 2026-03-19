@@ -222,6 +222,26 @@ describe('DiffOverlay', () => {
     expect(overlay.style.backgroundColor).toBe('rgba(234, 179, 8, 0.25)')
   })
 
+  it('renders overlay for effects-only diff (equal status with hasEffectsDiff)', () => {
+    const beatMap = new Map([[beatA1, mockBeatBounds(100, 110, 120, 130)]])
+    const masterBarMap = new Map([[0, mockMasterBarBounds(0, 0, 200, 300)]])
+    const api = createMockApi(createBoundsLookup(beatMap, masterBarMap))
+    const diffResult = makeDiffResult([
+      {
+        measureIndexA: 0,
+        measureIndexB: 0,
+        beatDiffs: [makeBeatDiff({ status: 'equal', beatA: beatA1, beatB: beatB1, hasEffectsDiff: true })],
+        tempoDiff: null,
+        timeSigDiff: null,
+      },
+    ])
+
+    render(<DiffOverlay diffResult={diffResult} side="A" api={api} renderKey={0} filters={allFilters} />)
+
+    const overlay = screen.getByTestId('overlay-beat-0-0-s0')
+    expect(overlay.style.backgroundColor).toBe('rgba(234, 179, 8, 0.25)')
+  })
+
   it('renders no overlay for equal beats', () => {
     const beatMap = new Map([[beatA1, mockBeatBounds(10, 20, 30, 40)]])
     const masterBarMap = new Map([[0, mockMasterBarBounds(0, 0, 200, 300)]])

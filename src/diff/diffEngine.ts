@@ -30,6 +30,64 @@ export function beatSignature(beat: Beat): string {
   return `${durationSig}|${notesSig}`
 }
 
+/**
+ * Build a signature string capturing all effects/articulations on a note.
+ * Only non-default values are included so identical notes produce ''.
+ */
+function noteEffectsSignature(note: Note): string {
+  const p: string[] = []
+  if (note.bendType !== 0) p.push(`bend:${note.bendType}`)
+  if (note.slideInType !== 0) p.push(`slIn:${note.slideInType}`)
+  if (note.slideOutType !== 0) p.push(`slOut:${note.slideOutType}`)
+  if (note.isHammerPullOrigin) p.push('hp')
+  if (note.vibrato !== 0) p.push(`vib:${note.vibrato}`)
+  if (note.isPalmMute) p.push('pm')
+  if (note.isLetRing) p.push('lr')
+  if (note.harmonicType !== 0) p.push(`harm:${note.harmonicType}`)
+  if (note.isDead) p.push('dead')
+  if (note.isGhost) p.push('ghost')
+  if (note.isStaccato) p.push('stac')
+  if (note.accentuated !== 0) p.push(`acc:${note.accentuated}`)
+  if (note.isTrill) p.push(`trill:${note.trillValue}:${note.trillSpeed}`)
+  if (note.isTieDestination) p.push('tie')
+  if (note.isLeftHandTapped) p.push('lht')
+  if (note.ornament !== 0) p.push(`orn:${note.ornament}`)
+  return p.join(',')
+}
+
+/**
+ * Build a signature string capturing all effects/articulations on a beat.
+ * Combines beat-level effects with per-note effects (sorted for stability).
+ */
+function beatEffectsSignature(beat: Beat): string {
+  const p: string[] = []
+  // Beat-level effects
+  if (beat.vibrato !== 0) p.push(`vib:${beat.vibrato}`)
+  if (beat.isPalmMute) p.push('pm')
+  if (beat.isLetRing) p.push('lr')
+  if (beat.whammyBarType !== 0) p.push(`whammy:${beat.whammyBarType}`)
+  if (beat.graceType !== 0) p.push(`grace:${beat.graceType}`)
+  if (beat.tremoloPicking) p.push('trem')
+  if (beat.brushType !== 0) p.push(`brush:${beat.brushType}`)
+  if (beat.pickStroke !== 0) p.push(`pick:${beat.pickStroke}`)
+  if (beat.pop) p.push('pop')
+  if (beat.slap) p.push('slap')
+  if (beat.tap) p.push('tap')
+  if (beat.fade !== 0) p.push(`fade:${beat.fade}`)
+  if (beat.crescendo !== 0) p.push(`cresc:${beat.crescendo}`)
+  if (beat.dynamics !== 4) p.push(`dyn:${beat.dynamics}`) // 4 = MF (default)
+  // Note-level effects (sorted by string+fret for deterministic order)
+  const noteFx = beat.notes
+    .map(n => {
+      const fx = noteEffectsSignature(n)
+      return fx ? `${noteSignature(n)}[${fx}]` : ''
+    })
+    .filter(Boolean)
+    .sort()
+  if (noteFx.length > 0) p.push(...noteFx)
+  return p.join('|')
+}
+
 function lcsTable(a: string[], b: string[]): number[][] {
   const m = a.length
   const n = b.length
@@ -92,13 +150,24 @@ function diffBeats(beatsA: Beat[], beatsB: Beat[]): BeatDiff[] {
 
   while (i > 0 && j > 0) {
     if (sigsA[i - 1] === sigsB[j - 1]) {
-      stack.push({ beatA: beatsA[i - 1], beatB: beatsB[j - 1], status: 'equal' })
+      // Notes/rhythm match — check if effects differ
+      const fxA = beatEffectsSignature(beatsA[i - 1])
+      const fxB = beatEffectsSignature(beatsB[j - 1])
+      // Keep status 'equal' so the beat doesn't get a full overlay;
+      // hasEffectsDiff signals the thin indicator bar only.
+      if (fxA !== fxB) {
+        stack.push({ beatA: beatsA[i - 1], beatB: beatsB[j - 1], status: 'equal', hasEffectsDiff: true })
+      } else {
+        stack.push({ beatA: beatsA[i - 1], beatB: beatsB[j - 1], status: 'equal' })
+      }
       i--
       j--
     } else if (dp[i - 1][j] === dp[i][j - 1]) {
       // Both directions yield same LCS length — treat as changed
       const noteDiffs = diffNotes(beatsA[i - 1], beatsB[j - 1])
-      stack.push({ beatA: beatsA[i - 1], beatB: beatsB[j - 1], status: 'changed', noteDiffs })
+      const fxA = beatEffectsSignature(beatsA[i - 1])
+      const fxB = beatEffectsSignature(beatsB[j - 1])
+      stack.push({ beatA: beatsA[i - 1], beatB: beatsB[j - 1], status: 'changed', noteDiffs, hasEffectsDiff: fxA !== fxB })
       i--
       j--
     } else if (dp[i - 1][j] > dp[i][j - 1]) {

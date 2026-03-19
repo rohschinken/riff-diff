@@ -26,7 +26,7 @@ const COLORS = {
 
 interface OverlayRect {
   key: string
-  type: 'beat' | 'ghost' | 'bar'
+  type: 'beat' | 'ghost' | 'bar' | 'effects-indicator'
   x: number
   y: number
   w: number
@@ -146,7 +146,8 @@ export function computeOverlays(
     for (let bi = 0; bi < measure.beatDiffs.length; bi++) {
       const bd = measure.beatDiffs[bi]
 
-      if (bd.status === 'equal') continue
+      // Skip beats with no visual difference
+      if (bd.status === 'equal' && !bd.hasEffectsDiff) continue
       // Beat-level overlays are only for 'changed' — added/removed are handled at bar level
       if (bd.status === 'added' || bd.status === 'removed') continue
       if (bd.status === 'changed' && !filters.showChanged) continue
@@ -162,15 +163,30 @@ export function computeOverlays(
         const posKey = `${x},${y},${w},${h}`
         if (seen.has(posKey)) continue
         seen.add(posKey)
-        overlays.push({
-          key: `beat-${mi}-${bi}-s${uniqueIdx}`,
-          type: 'beat',
-          x,
-          y,
-          w,
-          h,
-          color: COLORS[bd.status],
-        })
+        // Full beat overlay only for note/rhythm changes (status 'changed')
+        if (bd.status === 'changed' || bd.hasEffectsDiff) {
+          overlays.push({
+            key: `beat-${mi}-${bi}-s${uniqueIdx}`,
+            type: 'beat',
+            x,
+            y,
+            w,
+            h,
+            color: COLORS.changed,
+          })
+        }
+        // Thin indicator bar below the beat when effects/articulations differ
+        /*if (bd.status !== 'changed' && bd.hasEffectsDiff) {
+          overlays.push({
+            key: `fx-${mi}-${bi}-s${uniqueIdx}`,
+            type: 'effects-indicator',
+            x,
+            y: y + h,
+            w,
+            h: 6,
+            color: COLORS.changed,
+          })
+        }*/
         uniqueIdx++
       }
     }
