@@ -1,6 +1,6 @@
 # Riff-Diff — Agent Guidance
 
-Full spec: `riff-diff-claude-code-plan.md`. Keep `README.md` up to date.
+Full spec: `docs/architecture.md`. Keep `README.md` up to date.
 
 ## Stack
 React 19, TypeScript 7, Vite 8, Tailwind v4 (`@import "tailwindcss"` — no config file), alphaTab 1.8, Vitest 4 (happy-dom), Tauri v2.
