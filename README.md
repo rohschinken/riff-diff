@@ -17,7 +17,7 @@ Desktop installers for Windows, macOS, and Linux are attached to every [release]
 | Platform | Installers |
 |----------|------------|
 | Windows 10 1803+ / Windows 11 | NSIS installer (`.exe`) · MSI (`.msi`) |
-| macOS | DMG — Apple Silicon and Intel |
+| macOS | DMG — Apple Silicon |
 | Linux | `.deb` · `.rpm` · Flatpak |
 
 Starting with **v1.3.0**, every installer — Windows, macOS, Linux, and Flatpak — is built automatically by [GitHub Actions](.github/workflows/release.yml) when a version tag is pushed, so every release ships installers for all platforms. Windows installers use the built-in WebView2 runtime.

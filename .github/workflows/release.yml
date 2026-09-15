@@ -21,9 +21,6 @@ jobs:
           - platform: 'macos-latest'   # Apple Silicon
             args: '--target aarch64-apple-darwin --bundles dmg'
             rust-target: aarch64-apple-darwin
-          - platform: 'macos-15-intel' # last Intel macOS runner (until ~Aug 2027)
-            args: '--target x86_64-apple-darwin --bundles dmg'
-            rust-target: x86_64-apple-darwin
           - platform: 'ubuntu-22.04'
             args: ''                   # uses bundle.targets from tauri.conf.json (deb + rpm)
             rust-target: ''
@@ -34,10 +31,10 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Node.js 20
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
           cache: npm
@@ -77,10 +74,10 @@ jobs:
       contents: write
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Node.js 20
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
           cache: npm
@@ -95,7 +92,7 @@ jobs:
         run: npm ci
 
       - name: Build Tauri binary (no bundlers)
-        run: npm run tauri -- build --bundles none
+        run: npm run tauri -- build --no-bundle
 
       - name: Build Flatpak
         id: flatpak
