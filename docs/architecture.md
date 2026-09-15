@@ -145,8 +145,8 @@ Centralized in `src/diff/colors.ts` — single source of truth shared by the ove
 - CSP disabled (`csp: null`) — alphaTab uses inline styles, data URIs, worker blobs.
 - Window created **programmatically** in `setup()` (empty `windows: []` in config) to inject COOP/COEP headers via `on_web_resource_request` (SharedArrayBuffer requirement for the alphaTab worker).
 - Tauri's asset protocol serves `.mjs` as `text/html` — override `Content-Type` to `application/javascript` in `on_web_resource_request` when the request path ends in `.mjs`.
-- Build targets: `["deb", "rpm"]`; AppImage excluded (FUSE issues in CI). Linux Flatpak wraps a pre-built binary via `org.gnome.Platform//50`.
-- Releases are CI-automated: `.github/workflows/release.yml` builds deb/rpm (Linux), NSIS/MSI (Windows), DMG (macOS Apple Silicon), and Flatpak on every `v*` tag; the release is a draft until published manually.
+- Build targets: `["deb", "rpm"]`; AppImage excluded (FUSE issues in CI).
+- Releases are CI-automated: `.github/workflows/release.yml` builds deb/rpm (Linux), NSIS/MSI (Windows), DMG (macOS Apple Silicon) on every `v*` tag; the release is a draft until published manually.
 - For per-test Tauri mocks use `vi.doMock`/`vi.doUnmock` (hoisted `vi.mock` only allows one factory per module).
 
 ---
@@ -172,6 +172,6 @@ src/
   renderer/        AlphaTabPane (alphaTab wrapper + portal), DiffOverlay
   test/setup.ts    @testing-library/jest-dom
 scripts/           tauri-build.sh, build-all.sh
-flatpak/           Flatpak manifest + packaging
+flatpak/           Local-only Flatpak packaging (not part of releases)
 docs/              architecture.md (design + decisions), development.md (dev setup + builds)
 ```

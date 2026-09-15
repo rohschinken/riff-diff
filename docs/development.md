@@ -27,9 +27,8 @@ Open `http://localhost:5173`. Click "Open File A" / "Open File B" to load `.gp` 
 | `npm test` | Run tests (Vitest) |
 | `npm run test:ui` | Vitest browser UI |
 | `npm run tauri:dev` | Tauri desktop dev (hot reload) |
-| `npm run tauri:build` | Desktop builds — deb + rpm + flatpak (if `flatpak-builder` installed) |
-| `npm run build:flatpak` | Flatpak only |
-| `npm run build:all` | All builds (web + desktop + flatpak) |
+| `npm run tauri:build` | Desktop builds — deb + rpm |
+| `npm run build:all` | All builds (web + desktop) |
 
 ## Building
 
@@ -73,10 +72,10 @@ Output:
 Requires [Rust](https://www.rust-lang.org/tools/install) and system dependencies (`libwebkit2gtk-4.1-dev`, `libappindicator3-dev`, etc.).
 
 ```bash
-# Desktop only (deb + rpm + flatpak if available)
+# Desktop only (deb + rpm)
 npm run tauri:build
 
-# Or everything at once (web + desktop + flatpak)
+# Or everything at once (web + desktop)
 npm run build:all
 ```
 
@@ -84,24 +83,5 @@ Output:
 - Binary: `dist/bundle/riff-diff`
 - DEB: `dist/bundle/Riff-Diff_1.3.0_amd64.deb`
 - RPM: `dist/bundle/Riff-Diff-1.3.0-1.x86_64.rpm`
-- Flatpak: `dist/bundle/Riff-Diff.flatpak` (if `flatpak-builder` and `flatpak` are installed)
 
 > **Note:** Desktop builds are platform-specific — you can only build for the OS you're currently running on.
-
-### Flatpak
-
-Requires `flatpak` and `flatpak-builder`. The build bundles a pre-built Tauri binary (build first with `npm run tauri:build` or use `npm run build:all`).
-
-```bash
-npm run build:flatpak
-```
-
-Output: `dist/bundle/Riff-Diff.flatpak`
-
-Install and run:
-```bash
-flatpak install --bundle dist/bundle/Riff-Diff.flatpak
-flatpak run com.andiman5000.riffdiff
-```
-
-Uses `org.gnome.Platform//50` runtime (provides WebKit2GTK 4.1 needed by Tauri).

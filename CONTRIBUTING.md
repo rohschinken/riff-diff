@@ -24,7 +24,7 @@ Before opening an issue, please search existing issues and pull requests to avoi
 
 Use the GitHub issue template and include:
 
-- Riff-Diff version (shown in the app header, e.g. `v1.3.0`) and which build you use (web, Windows, macOS, Linux/Flatpak)
+- Riff-Diff version (shown in the app header, e.g. `v1.3.0`) and which build you use (web, Windows, macOS, Linux)
 - Browser/OS versions if using the web version
 - Steps to reproduce
 - Expected vs. actual behavior
