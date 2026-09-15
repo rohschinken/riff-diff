@@ -10,7 +10,7 @@ This project is GPL-3.0 licensed. By contributing, you agree that your contribut
 
 1. **Find or open an issue** — check the [issue tracker](https://github.com/rohschinken/riff-diff/issues) to see if someone is already working on it.
 2. **Fork the repository** and create a feature branch (`git switch -c feature/my-feature`).
-3. **Set up your development environment** (see [README](README.md#getting-started)).
+3. **Set up your development environment** (see [docs/development.md](docs/development.md#getting-started)).
 4. **Write your change**, following the guidelines below.
 5. **Submit a pull request** against `main`.
 
@@ -24,7 +24,7 @@ Before opening an issue, please search existing issues and pull requests to avoi
 
 Use the GitHub issue template and include:
 
-- Riff-Diff version (shown in the app header, e.g. `v1.2.1`) and which build you use (web, Windows, macOS, Linux/Flatpak)
+- Riff-Diff version (shown in the app header, e.g. `v1.3.0`) and which build you use (web, Windows, macOS, Linux/Flatpak)
 - Browser/OS versions if using the web version
 - Steps to reproduce
 - Expected vs. actual behavior

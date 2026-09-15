@@ -1,0 +1,114 @@
+name: Release
+
+# Builds native installers for Windows, macOS, and Linux on every version tag
+# (v1.3.0, v1.4.0, ...) and uploads them to a GitHub Release.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  publish-tauri:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos-latest'   # Apple Silicon
+            args: '--target aarch64-apple-darwin --bundles dmg'
+            rust-target: aarch64-apple-darwin
+          - platform: 'macos-15-intel' # last Intel macOS runner (until ~Aug 2027)
+            args: '--target x86_64-apple-darwin --bundles dmg'
+            rust-target: x86_64-apple-darwin
+          - platform: 'ubuntu-22.04'
+            args: ''                   # uses bundle.targets from tauri.conf.json (deb + rpm)
+            rust-target: ''
+          - platform: 'windows-latest'
+            args: '--bundles nsis,msi'
+            rust-target: ''
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-target }}
+
+      - name: Install Linux system dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build and release
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: 'Riff-Diff v__VERSION__'
+          releaseBody: 'Automated release built on GitHub-hosted runners. See the assets below for your platform.'
+          releaseDraft: true
+          prerelease: false
+          generateReleaseNotes: true
+          uploadWorkflowArtifacts: true
+          args: ${{ matrix.args }}
+
+  flatpak:
+    if: github.ref_type == 'tag'
+    needs: publish-tauri
+    permissions:
+      contents: write
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Flatpak tools
+        run: sudo apt-get update && sudo apt-get install -y flatpak flatpak-builder
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build Tauri binary (no bundlers)
+        run: npm run tauri -- build --bundles none
+
+      - name: Build Flatpak
+        id: flatpak
+        run: |
+          flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak-builder --force-clean --install-deps-from=flathub flatpak/build-dir flatpak/com.andiman5000.riffdiff.yml
+          flatpak build-export flatpak/export-dir flatpak/build-dir
+          flatpak build-bundle flatpak/export-dir Riff-Diff.flatpak com.andiman5000.riffdiff
+
+      - name: Attach Flatpak to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: Riff-Diff.flatpak
+          draft: true

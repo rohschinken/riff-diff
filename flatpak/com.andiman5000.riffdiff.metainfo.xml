@@ -19,7 +19,7 @@
   <project_license>MIT</project_license>
   <launchable type="desktop-id">com.andiman5000.riffdiff.desktop</launchable>
   <releases>
-    <release version="1.2.1" date="2026-07-28" />
+    <release version="1.3.0" date="2026-09-15" />
   </releases>
   <categories>
     <category>Audio</category>
