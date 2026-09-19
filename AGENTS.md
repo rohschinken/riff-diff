@@ -17,9 +17,8 @@ React 19, TypeScript 7, Vite 8, Tailwind v4 (`@import "tailwindcss"` — no conf
 | `npm run build` | `tsc -b && vite build` (typecheck first) |
 | `npm test` | `vitest run` |
 | `npm run tauri:dev` | Tauri desktop with hot reload |
-| `npm run tauri:build` | Desktop builds — deb + rpm + flatpak, outputs to `dist/bundle/` |
-| `npm run build:flatpak` | Flatpak only |
-| `npm run build:all` | All builds (web + desktop + flatpak) |
+| `npm run tauri:build` | Desktop builds — deb + rpm, outputs to `dist/bundle/` |
+| `npm run build:all` | All builds (web + desktop) |
 
 ## First-Time Setup
 After `npm install`, copy alphaTab assets:
@@ -100,18 +99,7 @@ Phantom bar insertion can race async worker renders. Suppress with global `windo
 - `.mjs` served as `text/html` by default — override `Content-Type` to `application/javascript`.
 - For Tauri per-test mocking: use `vi.doMock`/`vi.doUnmock` (not hoisted `vi.mock`).
 - Build targets: `["deb", "rpm"]` in `tauri.conf.json`. AppImage excluded (FUSE issues in CI).
-- `npm run tauri:build` chains Tauri build → optional Flatpak → collects all artifacts into `dist/bundle/`.
-- Flatpak: `flatpak/` directory — not a Tauri native target. Built via `build:flatpak` or automatically by `tauri:build`/`build:all` if `flatpak-builder` is installed.
-
-### Flatpak
-- Manifest: `flatpak/com.andiman5000.riffdiff.yml`.
-- Uses **`org.gnome.Platform//50`** runtime (Freedesktop doesn't include WebKit2GTK).
-- **Pre-built binary bundling**: builds from source, network was unavailable (EAI_AGAIN). The `flatpak/` directory is more customized.
-  - Build is simply `npm run build` + `node_modules/.bin/tsc -b`.
-  - Binary (`src-tauri/target/release/riff-diff`) is pre-built on the host; Flatpak just wraps it.
-- **Wayland**: On KDE Plasma + NVIDIA, WebKit2GTK may crash on Wayland. Add `--env=WEBKIT_DISABLE_DMABUF_RENDERER=1` to finish-args as workaround.
-- **Locale**: Add `--env=LC_ALL=C.UTF-8` to finish-args to suppress locale warnings.
-- **Artifact**: `dist/bundle/Riff-Diff.flatpak` (~15 MB). Install with `flatpak install --bundle`.
+- `npm run tauri:build` chains Tauri build → collects all artifacts into `dist/bundle/`.
 
 ## File Formats
 Only `.gp`, `.gp7`, `.gp8`. GP5/6 blocked. Percussion drum tab notation not possible (alphaTab limitation).
