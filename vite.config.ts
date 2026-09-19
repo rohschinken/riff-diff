@@ -19,10 +19,6 @@ export default defineConfig({
     host: 'localhost',
     port: 5173,
     strictPort: true,
-    watch: {
-      // symlinks (e.g. in flatpak/ build dirs can make chokidar throw ELOOP and crash the dev server.
-      followSymlinks: false
-    },
   },
 
   optimizeDeps: {

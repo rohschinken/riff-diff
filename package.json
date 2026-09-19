@@ -12,7 +12,6 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "scripts/tauri-build.sh",
-    "build:flatpak": "flatpak/build.sh",
     "build:all": "scripts/build-all.sh"
   },
   "dependencies": {

@@ -37,10 +37,5 @@ tmp/
 temp/
 .cache/
 
-# Flatpak build
-flatpak/.flatpak-builder/
-flatpak/build-dir/
-flatpak/export-dir/
-
 # Windows artifacts
 nul

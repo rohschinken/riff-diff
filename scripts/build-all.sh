@@ -8,7 +8,7 @@ echo "=== Step 1: Standalone web build ==="
 npm run build
 
 echo ""
-echo "=== Step 2: Desktop builds (tauri + flatpak) ==="
+echo "=== Step 2: Desktop builds (tauri) ==="
 npm run tauri:build
 
 echo ""
@@ -18,4 +18,3 @@ echo "  Desktop:     dist/bundle/"
 echo "    Binary:    dist/bundle/riff-diff"
 echo "    DEB:       dist/bundle/Riff-Diff_${VERSION}_amd64.deb"
 echo "    RPM:       dist/bundle/Riff-Diff-${VERSION}-1.x86_64.rpm"
-echo "    Flatpak:   dist/bundle/Riff-Diff.flatpak"

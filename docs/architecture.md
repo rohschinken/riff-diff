@@ -172,6 +172,5 @@ src/
   renderer/        AlphaTabPane (alphaTab wrapper + portal), DiffOverlay
   test/setup.ts    @testing-library/jest-dom
 scripts/           tauri-build.sh, build-all.sh
-flatpak/           Local-only Flatpak packaging (not part of releases)
 docs/              architecture.md (design + decisions), development.md (dev setup + builds)
 ```
