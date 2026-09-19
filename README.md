@@ -20,7 +20,7 @@ Desktop installers for Windows, macOS, and Linux are attached to every [release]
 | macOS | DMG — Apple Silicon |
 | Linux | `.deb` · `.rpm` |
 
-Starting with **v1.3.0**, every installer — Windows, macOS, and Linux — is built automatically by [GitHub Actions](.github/workflows/release.yml) when a version tag is pushed, so every release ships installers for all platforms. Windows installers use the built-in WebView2 runtime.
+Starting with **v1.3.0**, every installer — Windows, macOS, and Linux — is built automatically by [GitHub Actions](.github/workflows/release.yml) when a version tag is pushed, so every release ships installers for all platforms. Windows installers use the built-in WebView2 runtime. The [browser version](https://rohschinken.github.io/riff-diff/) is published to GitHub Pages on the same tag, keeping the hosted app in sync with each release.
 
 ## How It Works
 

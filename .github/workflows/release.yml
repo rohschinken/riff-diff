@@ -2,6 +2,8 @@ name: Release
 
 # Builds native installers for Windows, macOS, and Linux on every version tag
 # (v1.3.0, v1.4.0, ...) and uploads them to a GitHub Release.
+# Also deploys the web version to GitHub Pages on the same tag, so the hosted
+# version stays aligned with the desktop release instead of every commit.
 on:
   push:
     tags:
@@ -66,3 +68,36 @@ jobs:
           generateReleaseNotes: true
           uploadWorkflowArtifacts: true
           args: ${{ matrix.args }}
+
+  deploy-web:
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build web version
+        run: npm run build
+        env:
+          GITHUB_PAGES: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

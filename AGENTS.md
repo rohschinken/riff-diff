@@ -105,4 +105,4 @@ Phantom bar insertion can race async worker renders. Suppress with global `windo
 Only `.gp`, `.gp7`, `.gp8`. GP5/6 blocked. Percussion drum tab notation not possible (alphaTab limitation).
 
 ## CI/CD
-`.github/workflows/deploy-pages.yml` — push to `main` deploys to GitHub Pages. Runs `npm ci && npm run build` with `GITHUB_PAGES: true`.
+`.github/workflows/release.yml` — on every `v*` tag it builds desktop installers, uploads them to a draft Release, and deploys the web version to GitHub Pages. The web job runs `npm ci && npm run build` with `GITHUB_PAGES: true`.
