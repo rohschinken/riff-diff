@@ -146,7 +146,7 @@ Centralized in `src/diff/colors.ts` — single source of truth shared by the ove
 - Window created **programmatically** in `setup()` (empty `windows: []` in config) to inject COOP/COEP headers via `on_web_resource_request` (SharedArrayBuffer requirement for the alphaTab worker).
 - Tauri's asset protocol serves `.mjs` as `text/html` — override `Content-Type` to `application/javascript` in `on_web_resource_request` when the request path ends in `.mjs`.
 - Build targets: `["deb", "rpm"]`; AppImage excluded (FUSE issues in CI).
-- Releases are CI-automated: `.github/workflows/release.yml` builds deb/rpm (Linux), NSIS/MSI (Windows), DMG (macOS Apple Silicon) on every `v*` tag; the release is a draft until published manually.
+- Releases are CI-automated: `.github/workflows/release.yml` builds deb/rpm (Linux), NSIS/MSI (Windows), DMG (macOS Apple Silicon) on every `v*` tag; the release is a draft until published manually. The same workflow deploys the web version to GitHub Pages (`deploy-web` job), so the hosted app only updates per release tag rather than every commit on `main`.
 - For per-test Tauri mocks use `vi.doMock`/`vi.doUnmock` (hoisted `vi.mock` only allows one factory per module).
 
 ---
