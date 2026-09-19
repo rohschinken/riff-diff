@@ -40,6 +40,8 @@ Starting with **v1.3.0**, every installer — Windows, macOS, and Linux — is b
 
 The diff engine uses similarity-based alignment at two levels: bars are aligned across measures using a Needleman-Wunsch algorithm that scores content similarity (not just exact match), and beats within each matched bar pair are aligned via LCS (Longest Common Subsequence). Phantom (empty) bars are inserted to visually align added/removed measures between panes.
 
+An experimental alternative engine (`diffScoresAlphaTex`) derives its signatures from alphaTab's own AlphaTex serialization instead of custom field-based signatures. It is opt-in while under evaluation: set `VITE_DIFF_ENGINE=alphatex` (build-time) or `localStorage['riff-diff-engine'] = 'alphatex'` (runtime). The stable custom engine remains the default.
+
 ## Contributing
 
 **We welcome contributions** — bug reports, feature ideas, documentation, and pull requests are all appreciated. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to get involved.

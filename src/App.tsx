@@ -20,7 +20,7 @@ import { useZoom } from './hooks/useZoom'
 import { LoadingOverlay } from './components/LoadingOverlay'
 import { MetadataOverlay } from './components/MetadataOverlay'
 import { forceStaveVisibility } from './forceStaveVisibility'
-import { diffScores } from './diff/diffEngine'
+import { diffScoresSelected } from './diff/engineSelector'
 import { extractBarPairs, computePhantomPositions, insertPhantomBars, removePhantomBars } from './diff/phantomBars'
 import { DEFAULT_DIFF_FILTERS } from './diff/types'
 import type { DiffResult, DiffFilters } from './diff/types'
@@ -340,7 +340,7 @@ function App() {
     }
 
     // Compute diff on original (phantom-free) scores
-    const result = diffScores(scoreA, scoreB, trackMapA, trackMapB)
+    const result = diffScoresSelected(scoreA, scoreB, trackMapA, trackMapB)
     setDiffResult(result)
 
     // Compute phantom positions but don't insert yet — wait for panes to be idle

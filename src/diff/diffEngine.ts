@@ -88,7 +88,7 @@ function beatEffectsSignature(beat: Beat): string {
   return p.join('|')
 }
 
-function lcsTable(a: string[], b: string[]): number[][] {
+export function lcsTable(a: string[], b: string[]): number[][] {
   const m = a.length
   const n = b.length
   const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0))
@@ -192,7 +192,7 @@ function diffBeats(beatsA: Beat[], beatsB: Beat[]): BeatDiff[] {
   return stack.reverse()
 }
 
-function extractBeats(track: Score['tracks'][0], measureIndex: number): Beat[] {
+export function extractBeats(track: Score['tracks'][0], measureIndex: number): Beat[] {
   const bar = track.staves[0]?.bars[measureIndex]
   if (!bar) return []
   const voice = bar.voices[0]
@@ -209,7 +209,7 @@ function getEffectiveTempo(masterBars: MasterBar[], index: number, scoreTempo: n
   return scoreTempo
 }
 
-function compareTempo(
+export function compareTempo(
   masterBarsA: MasterBar[],
   masterBarsB: MasterBar[],
   indexA: number,
@@ -225,7 +225,7 @@ function compareTempo(
   return null
 }
 
-function compareTimeSig(
+export function compareTimeSig(
   mbA: MasterBar,
   mbB: MasterBar,
 ): { sigA: string; sigB: string } | null {
@@ -261,7 +261,7 @@ function globalBarSignature(score: Score, measureIndex: number): string[] {
  * Compute similarity between two bars (0.0 = completely different, 1.0 = identical).
  * Uses beat-level LCS to measure how many beats match.
  */
-function barSimilarity(beatSigsA: string[], beatSigsB: string[]): number {
+export function barSimilarity(beatSigsA: string[], beatSigsB: string[]): number {
   if (beatSigsA.length === 0 && beatSigsB.length === 0) return 1.0
   const maxLen = Math.max(beatSigsA.length, beatSigsB.length)
   if (maxLen === 0) return 1.0
@@ -276,7 +276,7 @@ function barSimilarity(beatSigsA: string[], beatSigsB: string[]): number {
  * Each cell dp[i][j] = best cumulative similarity aligning first i bars of A
  * with first j bars of B.
  */
-function barAlignmentTable(
+export function barAlignmentTable(
   beatSigsA: string[][],
   beatSigsB: string[][],
 ): number[][] {
