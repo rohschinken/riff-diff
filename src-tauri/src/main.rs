@@ -35,6 +35,10 @@ fn main() {
                         }
                     },
                 )
+                // Tauri's native drag-drop handler swallows OS file drops, so the
+                // webview never receives HTML5 dragenter/dragover/drop events.
+                // Disable it so useDropZone works the same as in the browser.
+                .disable_drag_drop_handler()
                 .build()?;
             Ok(())
         })

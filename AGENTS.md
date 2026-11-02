@@ -97,6 +97,7 @@ Phantom bar insertion can race async worker renders. Suppress with global `windo
 - CSP disabled (`null`) — alphaTab uses inline styles, data URIs, worker blobs.
 - Window created **programmatically** in `setup()` (empty `windows: []` in config) to inject COOP/COEP headers via `on_web_resource_request` (SharedArrayBuffer requirement).
 - `.mjs` served as `text/html` by default — override `Content-Type` to `application/javascript`.
+- Window builder must call `.disable_drag_drop_handler()` — otherwise Tauri swallows OS file drops and HTML5 `drop` (`useDropZone`) never fires. Config `dragDropEnabled` doesn't apply to programmatic windows.
 - For Tauri per-test mocking: use `vi.doMock`/`vi.doUnmock` (not hoisted `vi.mock`).
 - Build targets: `["deb", "rpm"]` in `tauri.conf.json`. AppImage excluded (FUSE issues in CI).
 - `npm run tauri:build` chains Tauri build → collects all artifacts into `dist/bundle/`.
