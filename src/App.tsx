@@ -16,6 +16,7 @@ import { useSyncScroll } from './hooks/useSyncScroll'
 import { useTheme } from './hooks/useTheme'
 import { useNotationToggle } from './hooks/useNotationToggle'
 import { useDropZone } from './hooks/useDropZone'
+import { useTauriFileDrop } from './hooks/useTauriFileDrop'
 import { useZoom } from './hooks/useZoom'
 import { LoadingOverlay } from './components/LoadingOverlay'
 import { MetadataOverlay } from './components/MetadataOverlay'
@@ -107,6 +108,12 @@ function App() {
 
   const dropA = useDropZone(fileA.loadFromFile)
   const dropB = useDropZone(fileB.loadFromFile)
+  const tauriDragOverSide = useTauriFileDrop({
+    onDropA: fileA.loadFromPath,
+    onDropB: fileB.loadFromPath,
+  })
+  const isDragOverA = dropA.isDragOver || tauriDragOverSide === 'A'
+  const isDragOverB = dropB.isDragOver || tauriDragOverSide === 'B'
   const { zoomLevel, zoomIn, zoomOut, resetZoom, canZoomIn, canZoomOut } = useZoom()
 
   const apiARef = useRef<AlphaTabApi | null>(null)
@@ -591,7 +598,11 @@ function App() {
         <div className="flex-1 min-h-0">
         <SplitPane
           top={
-            <div className="flex flex-col h-full relative" {...dropA.dropHandlers}>
+            <div
+              className="flex flex-col h-full relative"
+              data-drop-side="A"
+              {...dropA.dropHandlers}
+            >
               <PaneHeader
                 side="A"
                 fileName={fileA.fileData?.fileName ?? null}
@@ -624,7 +635,7 @@ function App() {
                 )}
                 <LoadingOverlay visible={fileA.isLoading || isRenderingA} testId="loading-overlay-A" />
               </div>
-              {dropA.isDragOver && (
+              {isDragOverA && (
                 <div className="absolute inset-0 top-10 z-50 flex items-center justify-center bg-chrome-accent/10 border-2 border-dashed border-chrome-accent rounded-lg pointer-events-none" data-testid="drop-overlay-A">
                   <span className="text-chrome-accent font-semibold text-sm">Drop GP file here</span>
                 </div>
@@ -632,7 +643,11 @@ function App() {
             </div>
           }
           bottom={
-            <div className="flex flex-col h-full relative" {...dropB.dropHandlers}>
+            <div
+              className="flex flex-col h-full relative"
+              data-drop-side="B"
+              {...dropB.dropHandlers}
+            >
               <PaneHeader
                 side="B"
                 fileName={fileB.fileData?.fileName ?? null}
@@ -665,7 +680,7 @@ function App() {
                 )}
                 <LoadingOverlay visible={fileB.isLoading || isRenderingB} testId="loading-overlay-B" />
               </div>
-              {dropB.isDragOver && (
+              {isDragOverB && (
                 <div className="absolute inset-0 top-10 z-50 flex items-center justify-center bg-chrome-accent/10 border-2 border-dashed border-chrome-accent rounded-lg pointer-events-none" data-testid="drop-overlay-B">
                   <span className="text-chrome-accent font-semibold text-sm">Drop GP file here</span>
                 </div>

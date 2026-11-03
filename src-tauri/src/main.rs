@@ -35,6 +35,10 @@ fn main() {
                         }
                     },
                 )
+                // Keep the native drag-drop handler enabled: the frontend listens
+                // to onDragDropEvent. Calling disable_drag_drop_handler() breaks
+                // external file drops on Linux/Wayland, where WebKitGTK does not
+                // reliably deliver them as HTML5 drop events.
                 .build()?;
             Ok(())
         })

@@ -10,6 +10,7 @@ export interface FileLoadResult {
 export interface UseFileLoaderReturn {
   openFilePicker: () => Promise<void>
   loadFromFile: (file: File) => Promise<void>
+  loadFromPath: (filePath: string) => Promise<void>
   fileData: FileLoadResult | null
   error: string | null
   isLoading: boolean
@@ -32,6 +33,15 @@ function isValidExtension(fileName: string): boolean {
 function getFileNameFromPath(filePath: string): string {
   const parts = filePath.replace(/\\/g, '/').split('/')
   return parts[parts.length - 1]
+}
+
+async function readFileFromPath(filePath: string): Promise<ArrayBuffer> {
+  const { readFile } = await import('@tauri-apps/plugin-fs')
+  const uint8Array = await readFile(filePath)
+  return uint8Array.buffer.slice(
+    uint8Array.byteOffset,
+    uint8Array.byteOffset + uint8Array.byteLength
+  ) as ArrayBuffer
 }
 
 export function useFileLoader(): UseFileLoaderReturn {
@@ -60,6 +70,29 @@ export function useFileLoader(): UseFileLoaderReturn {
     }
   }, [])
 
+  const loadFromPath = useCallback(async (filePath: string) => {
+    setError(null)
+
+    const fileName = getFileNameFromPath(filePath)
+
+    if (!isValidExtension(fileName)) {
+      setError(`Invalid file type: "${getExtension(fileName)}". Only .gp, .gp7, .gp8 files are accepted.`)
+      setFileData(null)
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const buffer = await readFileFromPath(filePath)
+      setFileData({ fileName, buffer })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to read file')
+      setFileData(null)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
   const openFilePicker = useCallback(async () => {
     setError(null)
     setIsLoading(true)
@@ -67,7 +100,6 @@ export function useFileLoader(): UseFileLoaderReturn {
     try {
       if (isTauri()) {
         const { open } = await import('@tauri-apps/plugin-dialog')
-        const { readFile } = await import('@tauri-apps/plugin-fs')
 
         const selected = await open({
           multiple: false,
@@ -93,11 +125,7 @@ export function useFileLoader(): UseFileLoaderReturn {
           return
         }
 
-        const uint8Array = await readFile(filePath)
-        const buffer = uint8Array.buffer.slice(
-          uint8Array.byteOffset,
-          uint8Array.byteOffset + uint8Array.byteLength
-        )
+        const buffer = await readFileFromPath(filePath)
         setFileData({ fileName, buffer })
       } else {
         const input = document.createElement('input')
@@ -138,5 +166,5 @@ export function useFileLoader(): UseFileLoaderReturn {
     }
   }, [])
 
-  return { openFilePicker, loadFromFile, fileData, error, isLoading }
+  return { openFilePicker, loadFromFile, loadFromPath, fileData, error, isLoading }
 }

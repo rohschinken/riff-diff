@@ -97,6 +97,7 @@ Phantom bar insertion can race async worker renders. Suppress with global `windo
 - CSP disabled (`null`) — alphaTab uses inline styles, data URIs, worker blobs.
 - Window created **programmatically** in `setup()` (empty `windows: []` in config) to inject COOP/COEP headers via `on_web_resource_request` (SharedArrayBuffer requirement).
 - `.mjs` served as `text/html` by default — override `Content-Type` to `application/javascript`.
+- Desktop file drops use Tauri's **native** `onDragDropEvent` (`src/hooks/useTauriFileDrop.ts`). Keep Tauri's drag-drop handler enabled — do **not** call `.disable_drag_drop_handler()`. On Linux/Wayland, WebKitGTK does not reliably deliver external file drops as HTML5 `drop` events, so disabling the native handler breaks drag-and-drop there. Tauri adds dropped paths to the fs plugin scope automatically; `useFileLoader.loadFromPath` reads them with `readFile`. HTML5 `useDropZone` is still used by the web build and as a fallback. **Coordinate quirk:** Tauri's type says `PhysicalPosition`, but wry reports logical pixels from GTK (Linux) and WKWebView (macOS); only Windows/WebView2 reports physical pixels. `sideAtPoint` therefore divides by `devicePixelRatio` only on Windows.
 - For Tauri per-test mocking: use `vi.doMock`/`vi.doUnmock` (not hoisted `vi.mock`).
 - Build targets: `["deb", "rpm"]` in `tauri.conf.json`. AppImage excluded (FUSE issues in CI).
 - `npm run tauri:build` chains Tauri build → collects all artifacts into `dist/bundle/`.
