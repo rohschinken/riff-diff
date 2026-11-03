@@ -50,8 +50,8 @@ npm run tauri:build
 
 Output:
 - **Portable:** `src-tauri/target/release/riff-diff.exe` — standalone, no installation needed
-- **MSI installer:** `src-tauri/target/release/bundle/msi/Riff-Diff_1.3.0_x64_en-US.msi`
-- **NSIS installer:** `src-tauri/target/release/bundle/nsis/Riff-Diff_1.3.0_x64-setup.exe`
+- **MSI installer:** `src-tauri/target/release/bundle/msi/Riff-Diff_1.3.2_x64_en-US.msi`
+- **NSIS installer:** `src-tauri/target/release/bundle/nsis/Riff-Diff_1.3.2_x64-setup.exe`
 
 The portable `.exe` is fully self-contained (frontend embedded in the binary) and can be run directly without installation. The installers add Start Menu shortcuts and register for uninstall. All variants require WebView2 (pre-installed on Windows 10 1803+ and Windows 11).
 
@@ -64,7 +64,7 @@ npm run tauri:build
 ```
 
 Output:
-- `src-tauri/target/release/bundle/dmg/Riff-Diff_1.3.0_aarch64.dmg` (Apple Silicon)
+- `src-tauri/target/release/bundle/dmg/Riff-Diff_1.3.2_aarch64.dmg` (Apple Silicon)
 - `src-tauri/target/release/bundle/macos/Riff-Diff.app`
 
 ### Linux
@@ -81,7 +81,7 @@ npm run build:all
 
 Output:
 - Binary: `dist/bundle/riff-diff`
-- DEB: `dist/bundle/Riff-Diff_1.3.0_amd64.deb`
-- RPM: `dist/bundle/Riff-Diff-1.3.0-1.x86_64.rpm`
+- DEB: `dist/bundle/Riff-Diff_1.3.2_amd64.deb`
+- RPM: `dist/bundle/Riff-Diff-1.3.2-1.x86_64.rpm`
 
 > **Note:** Desktop builds are platform-specific — you can only build for the OS you're currently running on.
