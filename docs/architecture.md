@@ -145,6 +145,8 @@ Centralized in `src/diff/colors.ts` — single source of truth shared by the ove
 - CSP disabled (`csp: null`) — alphaTab uses inline styles, data URIs, worker blobs.
 - Window created **programmatically** in `setup()` (empty `windows: []` in config) to inject COOP/COEP headers via `on_web_resource_request` (SharedArrayBuffer requirement for the alphaTab worker).
 - Tauri's asset protocol serves `.mjs` as `text/html` — override `Content-Type` to `application/javascript` in `on_web_resource_request` when the request path ends in `.mjs`.
+- **File drops (desktop):** keep Tauri's native drag-drop handler enabled and listen to `getCurrentWebviewWindow().onDragDropEvent()` in `useTauriFileDrop`. Do **not** call `.disable_drag_drop_handler()`: on Linux/Wayland, WebKitGTK does not reliably turn external file drops into HTML5 `drop` events, so disabling the native handler makes drops do nothing on Linux. `useTauriFileDrop` hit-tests the event position against elements marked `data-drop-side="A"/"B"` and routes the dropped path to `useFileLoader.loadFromPath`. Tauri's type declares the position physical, but wry reports logical pixels from GTK (Linux) and WKWebView (macOS); only Windows/WebView2 needs division by `devicePixelRatio`. Tauri automatically adds dropped paths to the fs plugin scope, so `readFile` works without a broad `fs:scope`.
+- **File drops (web):** `useDropZone` handles the HTML5 `dragenter`/`dragover`/`drop` events. Its DOM tests live in `src/hooks/useDropZone.dom.test.tsx`.
 - Build targets: `["deb", "rpm"]`; AppImage excluded (FUSE issues in CI).
 - Releases are CI-automated: `.github/workflows/release.yml` builds deb/rpm (Linux), NSIS/MSI (Windows), DMG (macOS Apple Silicon) on every `v*` tag; the release is a draft until published manually. The same workflow deploys the web version to GitHub Pages (`deploy-web` job), so the hosted app only updates per release tag rather than every commit on `main`.
 - For per-test Tauri mocks use `vi.doMock`/`vi.doUnmock` (hoisted `vi.mock` only allows one factory per module).
@@ -168,7 +170,7 @@ assets/            App icon + README screenshot
 src/
   components/      SplitPane, TrackToolbar, DiffFilterBar, DiffMinimap, LoadingOverlay, PaneHeader, EmptyPane
   diff/            types.ts, colors.ts, diffEngine.ts, phantomBars.ts
-  hooks/           useFileLoader, useSyncScroll, useTheme, useDropZone, useZoom, useNotationToggle
+  hooks/           useFileLoader, useSyncScroll, useTheme, useDropZone, useTauriFileDrop, useZoom, useNotationToggle
   renderer/        AlphaTabPane (alphaTab wrapper + portal), DiffOverlay
   test/setup.ts    @testing-library/jest-dom
 scripts/           tauri-build.sh, build-all.sh

@@ -151,6 +151,62 @@ describe('useFileLoader', () => {
       expect(result.current.error).toBe('Permission denied')
       expect(result.current.isLoading).toBe(false)
     })
+
+    it('loads a dropped file path via loadFromPath', async () => {
+      mockReadFile.mockResolvedValue(new Uint8Array([9, 8, 7]))
+
+      const { result } = renderHook(() => useFileLoader())
+
+      await act(async () => {
+        await result.current.loadFromPath('/home/me/song.gp8')
+      })
+
+      expect(mockReadFile).toHaveBeenCalledWith('/home/me/song.gp8')
+      expect(result.current.fileData).not.toBeNull()
+      expect(result.current.fileData!.fileName).toBe('song.gp8')
+      expect(result.current.fileData!.buffer.byteLength).toBe(3)
+      expect(result.current.error).toBeNull()
+      expect(result.current.isLoading).toBe(false)
+    })
+
+    it('extracts filename from Windows paths in loadFromPath', async () => {
+      mockReadFile.mockResolvedValue(new Uint8Array([1]))
+
+      const { result } = renderHook(() => useFileLoader())
+
+      await act(async () => {
+        await result.current.loadFromPath('C:\\Users\\me\\Documents\\song.gp7')
+      })
+
+      expect(result.current.fileData!.fileName).toBe('song.gp7')
+    })
+
+    it('rejects an invalid dropped path without reading it', async () => {
+      const { result } = renderHook(() => useFileLoader())
+
+      await act(async () => {
+        await result.current.loadFromPath('/home/me/song.gp5')
+      })
+
+      expect(mockReadFile).not.toHaveBeenCalled()
+      expect(result.current.fileData).toBeNull()
+      expect(result.current.error).toContain('Invalid file type')
+      expect(result.current.isLoading).toBe(false)
+    })
+
+    it('handles loadFromPath read errors gracefully', async () => {
+      mockReadFile.mockRejectedValue(new Error('Permission denied'))
+
+      const { result } = renderHook(() => useFileLoader())
+
+      await act(async () => {
+        await result.current.loadFromPath('/home/me/song.gp')
+      })
+
+      expect(result.current.fileData).toBeNull()
+      expect(result.current.error).toBe('Permission denied')
+      expect(result.current.isLoading).toBe(false)
+    })
   })
 
   describe('shared behavior', () => {
